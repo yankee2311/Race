@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "blender": "4.5.3 LTS",
+  "length_m": 4200.000198651379,
+  "main_straight_m": 900,
+  "width_m": 14,
+  "elevation_min_m": 11.999999999999995,
+  "elevation_max_m": 131.99999714738738,
+  "max_grade_percent": 14.73883229170454,
+  "max_banking_percent": 7.9952274698547665,
+  "road_chunks": 14,
+  "chunk_length_m": 300,
+  "triangles_all_lods": 665155,
+  "mesh_objects": 254,
+  "closure_gap_m": 0.0
+}

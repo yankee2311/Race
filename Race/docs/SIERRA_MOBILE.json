@@ -1,0 +1,10 @@
+{
+  "source": "Circuito de la Sierra v1.0",
+  "blender": "4.5.3",
+  "triangles": 306650,
+  "source_triangles": 665155,
+  "road_geometry_unchanged": true,
+  "road_chunks": 14,
+  "max_banking_percent": 8,
+  "length_m": 4200
+}

@@ -1,0 +1,6 @@
+# Git LFS: modelos 3D pesados y escenas de Blender
+*.glb filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+# Evitar conversión de saltos de línea en assets binarios de Godot
+*.import -text
+*.tscn -text

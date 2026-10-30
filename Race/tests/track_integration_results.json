@@ -1,0 +1,15 @@
+{
+  "errors": [],
+  "passed": true,
+  "raycast_misses": 0,
+  "road_obstructions": 0,
+  "sierra_contacts": 4,
+  "sierra_spawn_height": 12.5329351425171,
+  "sierra_speed_after_4s": 71.6281059265137,
+  "surface_counts": {
+    "asphalt": 31,
+    "grass": 64,
+    "gravel": 28,
+    "kerb": 22
+  }
+}

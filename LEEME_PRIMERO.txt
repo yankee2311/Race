@@ -1,0 +1,62 @@
+RACE / GT77 DRIVE LAB — PROYECTO COMPLETO 0.2.0
+
+ABRIR EL JUEGO
+1. Extrae todo este ZIP conservando las carpetas.
+2. En Godot 4.5.1 estándar, importa Race/project.godot.
+3. Espera a que termine la importación y pulsa F5.
+4. Elige GT77 Proving Ground o Circuito de la Sierra y pulsa Conducir.
+
+INSTALAR EN ANDROID
+Abre outputs/Race_GT77_Sierra_0.2.0.apk en un dispositivo Android compatible.
+El APK está firmado para pruebas, incluye ARM de 32 y 64 bits y requiere
+Android 7.0/API 24 o superior y OpenGL ES 3.0.
+
+CONTENIDO
+- Race/: proyecto Godot completo: código, escenas, modelos, texturas,
+  selector de pistas, vistas previas, mapas, fichas técnicas y pruebas.
+- Circuito_de_la_Sierra/Circuito_de_la_Sierra.blend: modelo editable de la
+  pista en Blender 4.5.3 LTS, con texturas empaquetadas.
+- Circuito_de_la_Sierra/build_circuit.py y design.json: constructor y trazado.
+- Circuito_de_la_Sierra/godot/: escena independiente de inspección del circuito.
+  El juego integrado está en Race/project.godot.
+- optimize_sierra_mobile.py: adaptación móvil del modelo de Blender.
+- outputs/: APK ya compilado.
+- SHA256SUMS.txt: comprobación de integridad de los archivos del paquete.
+
+COMPILAR EL APK
+Instala Godot 4.5.1 con sus plantillas de exportación Android, OpenJDK 17,
+Android SDK platform-tools y build-tools 35. Configura las rutas del SDK,
+Java y la clave de pruebas en Editor Settings > Export > Android.
+Desde Race/:
+  bash scripts/create_debug_keystore.sh
+  godot --headless --editor --import
+  godot --headless --export-debug Android ../outputs/Race_GT77_Sierra_0.2.0.apk
+
+El generador crea build/debug.keystore; el alias y contraseña de pruebas son
+los valores estándar de Android. Una firma nueva no puede actualizar una
+instalación firmada con otra clave: usa la clave original si la conservas,
+o desinstala la versión anterior antes de instalar tu nueva compilación
+(desinstalar puede borrar ajustes y récords locales).
+
+MODIFICAR LA PISTA
+Abre el .blend directamente para editar. Para regenerar el modelo desde el
+trazado, guarda tus cambios manuales y ejecuta desde esta carpeta:
+  blender --background --python Circuito_de_la_Sierra/build_circuit.py
+  blender --background --python optimize_sierra_mobile.py
+Después vuelve a importar Race/project.godot en Godot. El segundo comando
+reemplaza el GLB móvil y copia la línea central generada al juego.
+Si cambias dimensiones o características del trazado, actualiza también
+la ficha en Race/scripts/track_catalog.gd y sus vistas previas.
+
+VALIDACIÓN
+Las pruebas de físicas, controles, contacto con la pista, cronometraje y
+selector se completaron correctamente. La firma y estructura del APK se
+verificaron. Resultados: Race/docs/BUILD_VERIFICATION.json y Race/tests/.
+No se ha probado en un teléfono Android físico.
+
+ESTADO DE LA ENTREGA
+Este paquete contiene la versión integrada local, todavía no publicada en
+main de GitHub. Commit de referencia: 775c6813286749cbe36fa226676ef9cca6af9224.
+El código del juego coincide con ese commit. El paquete añade el modelo
+editable, el exportador portátil y el APK para facilitar su uso.
+No incluye las herramientas instaladas, cachés de importación ni claves de firma.

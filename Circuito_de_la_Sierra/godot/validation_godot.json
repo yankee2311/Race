@@ -1,0 +1,13 @@
+{
+  "asphalt": 31,
+  "kerb": 22,
+  "loose": 92,
+  "max_height_error_m": 0.024999809265136,
+  "minimum_up_normal": 0.987111568450928,
+  "path_length_m": 4199.91845703125,
+  "road_obstructions": 0,
+  "road_raycast_misses": 0,
+  "road_raycast_samples": 840,
+  "static_bodies": 145,
+  "triangle_colliders": 145
+}

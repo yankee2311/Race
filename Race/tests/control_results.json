@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "pointers": {
+    "0": "gas",
+    "1": "left"
+  },
+  "steering": -0.75,
+  "throttle": 1.0
+}

@@ -1,0 +1,10 @@
+.godot/
+build/*
+!build/debug.keystore
+*.apk
+*.idsig
+*.aab
+*.keystore
+!build/debug.keystore
+*.blend1
+*.tmp

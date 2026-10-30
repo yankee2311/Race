@@ -1,0 +1,25 @@
+{
+  "acceleration_12s_kmh": 134.360499572754,
+  "acceleration_height": 0.565889596939087,
+  "brake_5s_kmh": 0.00000237082110743358,
+  "brake_distance_m": 54.2200698852539,
+  "contacts": 4,
+  "downforce_180kmh": 4590.43806216792,
+  "drag_180kmh": 1001.55445187771,
+  "errors": [],
+  "gear": 3,
+  "idle_height": 0.532926499843597,
+  "idle_speed": 0.00150519325397909,
+  "multitouch_pointers": {
+    "0": "gas",
+    "1": "left"
+  },
+  "multitouch_steering": -0.75,
+  "multitouch_throttle": 1.0,
+  "passed": true,
+  "reverse_z": 21.290075302124,
+  "sensor_steering": 0.824105045373981,
+  "steering_up": 0.999555826187134,
+  "steering_x": 21.5015811920166,
+  "zero_to_100": 6.55
+}

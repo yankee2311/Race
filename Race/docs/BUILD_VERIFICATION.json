@@ -1,0 +1,71 @@
+{
+  "apk": "Race_GT77_Sierra_0.2.0.apk",
+  "version": "0.2.0",
+  "version_code": 2,
+  "package": "com.jeansaenz.gt77drivelab",
+  "bytes": 76896467,
+  "sha256": "992227977b85044d2b4e3d6279909dd075b00d41c775067916e7aa6b340406fb",
+  "godot": "4.5.1",
+  "min_sdk": 24,
+  "target_sdk": 35,
+  "architectures": [
+    "arm64-v8a",
+    "armeabi-v7a"
+  ],
+  "signature": "apksigner verified v2/v3; existing repository debug signing key",
+  "track_count": 2,
+  "physics_tests": {
+    "acceleration_12s_kmh": 134.360499572754,
+    "acceleration_height": 0.565889596939087,
+    "brake_5s_kmh": 2.37082110743358e-06,
+    "brake_distance_m": 54.2200698852539,
+    "contacts": 4,
+    "downforce_180kmh": 4590.43806216792,
+    "drag_180kmh": 1001.55445187771,
+    "errors": [],
+    "gear": 3,
+    "idle_height": 0.532926499843597,
+    "idle_speed": 0.00150519325397909,
+    "multitouch_pointers": {
+      "0": "gas",
+      "1": "left"
+    },
+    "multitouch_steering": -0.75,
+    "multitouch_throttle": 1.0,
+    "passed": true,
+    "reverse_z": 21.290075302124,
+    "sensor_steering": 0.824105045373981,
+    "steering_up": 0.999555826187134,
+    "steering_x": 21.5015811920166,
+    "zero_to_100": 6.55
+  },
+  "controls_tests": {
+    "passed": true,
+    "pointers": {
+      "0": "gas",
+      "1": "left"
+    },
+    "steering": -0.75,
+    "throttle": 1.0
+  },
+  "track_integration": {
+    "errors": [],
+    "passed": true,
+    "raycast_misses": 0,
+    "road_obstructions": 0,
+    "sierra_contacts": 4,
+    "sierra_spawn_height": 12.5329351425171,
+    "sierra_speed_after_4s": 71.6281059265137,
+    "surface_counts": {
+      "asphalt": 31,
+      "grass": 64,
+      "gravel": 28,
+      "kerb": 22
+    }
+  },
+  "selector_touch_and_layout": {
+    "errors": [],
+    "passed": true
+  },
+  "android_physical_device_tested": false
+}

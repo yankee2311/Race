@@ -1,0 +1,20 @@
+# Godot (ambos proyectos: Race/ y Circuito_de_la_Sierra/godot/)
+.godot/
+.godot_editor/
+export_credentials.cfg
+
+# Salidas de exportación
+*.apk
+*.idsig
+*.aab
+*.tmp
+build/*.tmp
+
+# Blender
+*.blend1
+*.blend2
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store

@@ -1,0 +1,11 @@
+{
+  "glb_version": 2,
+  "mesh_count": 254,
+  "material_count": 14,
+  "embedded_images": 6,
+  "all_meshes_have_uv_and_normals": true,
+  "cameras": 0,
+  "lights": 0,
+  "pbr_normal_and_roughness_maps": true,
+  "sha256_glb": "b0ffb92e66d2e20920c08323bc64ba72cb91713d6b679fa388115da3b553bc9f"
+}
