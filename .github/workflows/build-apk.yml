@@ -79,9 +79,9 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           git config user.name "ci-bot"
           git config user.email "actions@github.com"
-          cp ../import.log ci_import.log 2>/dev/null || true
-          cp ../export.log ci_export.log 2>/dev/null || true
-          git add ci_import.log ci_export.log 2>/dev/null || true
+          cp "$GITHUB_WORKSPACE/import.log" ci_import.log
+          cp "$GITHUB_WORKSPACE/export.log" ci_export.log
+          git add ci_import.log ci_export.log
           git diff --cached --quiet || git commit -m "ci: log de export fallida" --quiet
           git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/yankee2311/Race.git" HEAD:ci-logs
 
