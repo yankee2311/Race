@@ -73,6 +73,20 @@ jobs:
           godot --headless --export-debug "Android" "$GITHUB_WORKSPACE/outputs/Race_GT77_Sierra_0.2.1.apk" --verbose 2>&1 | tee ../export.log || true
           test -f "$GITHUB_WORKSPACE/outputs/Race_GT77_Sierra_0.2.1.apk"
 
+      - name: Verificar que el APK contiene el modelo del coche
+        run: |
+          APK="$GITHUB_WORKSPACE/outputs/Race_GT77_Sierra_0.2.1.apk"
+          unzip -l "$APK" | awk '{print $NF}' > /tmp/apk_list.txt
+          for nombre in assets/gt77_mobile.glb assets/gt77_mobile_reference_basecolor.png assets/tracks/sierra/sierra_mobile.glb; do
+            if grep -qxF "$nombre" /tmp/apk_list.txt; then
+              echo "OK: $nombre dentro del APK"
+            else
+              echo "FALTA: $nombre no esta en el APK"
+              grep -iE "gt77|sierra" /tmp/apk_list.txt || true
+              exit 1
+            fi
+          done
+
       - name: Publicar log en rama ci-logs (solo si falla)
         if: failure()
         env:
