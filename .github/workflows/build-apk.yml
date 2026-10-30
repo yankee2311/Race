@@ -12,6 +12,8 @@ jobs:
   export-android:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: write
     steps:
       - name: Checkout (con Git LFS)
         uses: actions/checkout@v4
@@ -68,6 +70,20 @@ jobs:
           mkdir -p ../outputs
           godot --headless --export-debug "Android" "$GITHUB_WORKSPACE/outputs/Race_GT77_Sierra_0.2.1.apk" --verbose 2>&1 | tee ../export.log || true
           test -f "$GITHUB_WORKSPACE/outputs/Race_GT77_Sierra_0.2.1.apk"
+
+      - name: Publicar log en rama ci-logs (solo si falla)
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "ci-bot"
+          git config user.email "actions@github.com"
+          cp ../import.log ci_import.log 2>/dev/null || true
+          cp ../export.log ci_export.log 2>/dev/null || true
+          git add ci_import.log ci_export.log 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "ci: log de export fallida" --quiet
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/yankee2311/Race.git" HEAD:ci-logs
 
       - name: Subir log de exportación (diagnóstico)
         if: always()
