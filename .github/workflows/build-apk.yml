@@ -36,13 +36,15 @@ jobs:
           wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz -O templates.tpz
           mkdir -p /tmp/t ~/.local/share/godot/export_templates
           unzip -q templates.tpz -d /tmp/t
-          if [ -d /tmp/t/export_templates ]; then
-            mv /tmp/t/export_templates ~/.local/share/godot/export_templates/4.5.1.stable
+          # Godot 4.5.1: el TPZ contiene la carpeta "templates/" (antes era "export_templates/")
+          if [ -d /tmp/t/templates ]; then
+            mv /tmp/t/templates ~/.local/share/godot/export_templates/4.5.1.stable
           else
-            mkdir ~/.local/share/godot/export_templates/4.5.1.stable
-            mv /tmp/t/* ~/.local/share/godot/export_templates/4.5.1.stable/ || true
+            mv /tmp/t/export_templates ~/.local/share/godot/export_templates/4.5.1.stable
           fi
-          ls ~/.local/share/godot/export_templates/4.5.1.stable | head -20
+          test -f ~/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk
+          test -f ~/.local/share/godot/export_templates/4.5.1.stable/android_release.apk
+          ls ~/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk
 
       - name: Configurar keystore debug (usa la clave incluida en el repo)
         run: |
