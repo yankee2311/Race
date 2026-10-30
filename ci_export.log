@@ -1,0 +1,263 @@
+WorkerThreadPool: 4 threads, 3 max low-priority.
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+TextServer: Added interface "Dummy"
+TextServer: Added interface "ICU / HarfBuzz / Graphite (Built-in)"
+Unrecognized output string "misc2" in mapping:
+030000000d0f0000ab01000011010000,Horipad Steam,a:b0,b:b1,back:b10,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b6,leftstick:b13,lefttrigger:a5,leftx:a0,lefty:a1,misc2:b2,paddle1:b19,paddle2:b18,paddle3:b15,paddle4:b5,rightshoulder:b7,rightstick:b14,righttrigger:a4,rightx:a2,righty:a3,start:b11,x:b3,y:b4,platform:Linux,
+Unrecognized output string "misc2" in mapping:
+050000000d0f00009601000091000000,Horipad Steam,a:b0,b:b1,back:b10,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b6,leftstick:b13,lefttrigger:a5,leftx:a0,lefty:a1,misc2:b2,paddle1:b19,paddle2:b18,paddle3:b15,paddle4:b5,rightshoulder:b7,rightstick:b14,righttrigger:a4,rightx:a2,righty:a3,start:b11,x:b3,y:b4,platform:Linux,
+Unrecognized output string "misc2" in mapping:
+030000007e0500006920000011010000,Nintendo Switch 2 Pro Controller,a:b0,b:b1,back:b14,dpdown:b8,dpleft:b10,dpright:b9,dpup:b11,guide:b16,leftshoulder:b12,leftstick:b15,lefttrigger:b13,leftx:a0,lefty:a1~,misc1:b17,misc2:b20,paddle1:b18,paddle2:b19,rightshoulder:b4,rightstick:b7,righttrigger:b5,rightx:a2,righty:a3~,start:b6,x:b2,y:b3,platform:Linux,
+SDL: Init OK!
+Using "default" pen tablet driver...
+
+TextServer: Primary interface set to: "ICU / HarfBuzz / Graphite (Built-in)".
+CORE API HASH: 937899573
+EDITOR API HASH: 1777164193
+SceneTreeFTI: traversal method DEFAULT
+Loading resource: /home/runner/.config/godot/editor_settings-4.5.tres
+EditorSettings: Load OK!
+EditorTheme: Generating new theme for the config '66886095'.
+EditorTheme: Generating new icons.
+EditorTheme: Generating new fonts.
+EditorTheme: Generating new styles.
+Loading resource: /home/runner/.cache/godot/editor_doc_cache-4.5.res
+Loaded system CA certificates
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Started Project initialization (5 steps)[39m[0m
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Scanning file structure...[39m[0m
+[  16% ] [90m[1mfirst_scan_filesystem[22m | Loading global class names...[39m[0m
+[  33% ] [90m[1mfirst_scan_filesystem[22m | Verifying GDExtensions...[39m[0m
+[  50% ] [90m[1mfirst_scan_filesystem[22m | Creating autoload scripts...[39m[0m
+[  66% ] [90m[1mfirst_scan_filesystem[22m | Initializing plugins...[39m[0m
+[  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
+[92m[ DONE ][39m [1mfirst_scan_filesystem[22m
+[0m
+[   0% ] [90m[1mexport[22m | Started Exporting for Android (105 steps)[39m[0m
+Exporting for Android...
+- debug build: true
+- export path: /home/runner/work/Race/Race/outputs/Race_GT77_Sierra_0.2.1.apk
+- export format: 0
+- sign build: true
+- gradle build enabled: false
+- apk expansion enabled: false
+- enabled abis: armeabi-v7a,arm64-v8a
+- export filter: 0
+- include filter: *.json,assets/*.txt
+- exclude filter: tests/*,build/*,docs/*,assets/GT77.glb,assets/GT77_race_number.png,assets/GT77_reference_basecolor.png
+Loading regular icon from res://assets/icon.svg
+Loading resource: res://assets/icon.svg
+Loading resource: res://.godot/imported/icon.svg-56083ea2a1f1a4f1e49773bdc6d7826c.ctex
+Loading adaptive foreground icon from 
+- falling back to using the regular icon
+0 param: --xr_mode_regular
+1 param: --xr-mode
+2 param: off
+3 param: --fullscreen
+4 param: --background_color
+5 param: #000000
+Starting legacy build system...
+[   0% ] [90m[1mexport[22m | Creating APK...[39m[0m
+ADDING: classes.dex
+ADDING: classes10.dex
+ADDING: classes11.dex
+ADDING: classes12.dex
+ADDING: classes13.dex
+ADDING: classes14.dex
+ADDING: classes2.dex
+ADDING: classes3.dex
+ADDING: classes4.dex
+ADDING: classes5.dex
+ADDING: classes6.dex
+ADDING: classes7.dex
+ADDING: classes8.dex
+ADDING: classes9.dex
+ADDING: lib/arm64-v8a/libc++_shared.so
+ADDING: lib/arm64-v8a/libgodot_android.so
+ADDING: lib/armeabi-v7a/libc++_shared.so
+ADDING: lib/armeabi-v7a/libgodot_android.so
+Adding application metadata org.godotengine.rendering.method
+Adding application metadata org.godotengine.editor.version
+ADDING: AndroidManifest.xml
+ADDING: res/anim-v21/fragment_fast_out_extra_slow_in.xml
+ADDING: res/animator/fragment_close_enter.xml
+ADDING: res/animator/fragment_close_exit.xml
+ADDING: res/animator/fragment_fade_enter.xml
+ADDING: res/animator/fragment_fade_exit.xml
+ADDING: res/animator/fragment_open_enter.xml
+ADDING: res/animator/fragment_open_exit.xml
+ADDING: res/drawable-hdpi-v4/notification_bg_low_normal.9.png
+ADDING: res/drawable-hdpi-v4/notification_bg_low_pressed.9.png
+ADDING: res/drawable-hdpi-v4/notification_bg_normal.9.png
+ADDING: res/drawable-hdpi-v4/notification_bg_normal_pressed.9.png
+ADDING: res/drawable-hdpi-v4/notify_panel_notification_icon_bg.png
+ADDING: res/drawable-mdpi-v4/notification_bg_low_normal.9.png
+ADDING: res/drawable-mdpi-v4/notification_bg_low_pressed.9.png
+ADDING: res/drawable-mdpi-v4/notification_bg_normal.9.png
+ADDING: res/drawable-mdpi-v4/notification_bg_normal_pressed.9.png
+ADDING: res/drawable-mdpi-v4/notify_panel_notification_icon_bg.png
+ADDING: res/drawable-v21/notification_action_background.xml
+ADDING: res/drawable-v23/compat_splash_screen.xml
+ADDING: res/drawable-v23/compat_splash_screen_no_icon_background.xml
+ADDING: res/drawable-xhdpi-v4/notification_bg_low_normal.9.png
+ADDING: res/drawable-xhdpi-v4/notification_bg_low_pressed.9.png
+ADDING: res/drawable-xhdpi-v4/notification_bg_normal.9.png
+ADDING: res/drawable-xhdpi-v4/notification_bg_normal_pressed.9.png
+ADDING: res/drawable-xhdpi-v4/notify_panel_notification_icon_bg.png
+ADDING: res/drawable/icon_background.xml
+ADDING: res/drawable/notification_bg.xml
+ADDING: res/drawable/notification_bg_low.xml
+ADDING: res/drawable/notification_icon_background.xml
+ADDING: res/drawable/notification_tile_bg.xml
+ADDING: res/layout-v21/notification_action.xml
+ADDING: res/layout-v21/notification_action_tombstone.xml
+ADDING: res/layout-v21/notification_template_custom_big.xml
+ADDING: res/layout-v21/notification_template_icon_group.xml
+ADDING: res/layout/custom_dialog.xml
+ADDING: res/layout/downloading_expansion.xml
+ADDING: res/layout/godot_app_layout.xml
+ADDING: res/layout/notification_template_part_chronometer.xml
+ADDING: res/layout/notification_template_part_time.xml
+ADDING: res/layout/remote_godot_fragment_layout.xml
+ADDING: res/layout/snackbar.xml
+ADDING: res/layout/splash_screen_view.xml
+ADDING: res/layout/status_bar_ongoing_event_progress_bar.xml
+ADDING: res/mipmap-anydpi-v26/icon.xml
+ADDING: res/mipmap-hdpi-v4/icon.png
+ADDING: res/mipmap-hdpi-v4/icon_background.png
+ADDING: res/mipmap-hdpi-v4/icon_foreground.png
+ADDING: res/mipmap-hdpi-v4/icon_monochrome.png
+ADDING: res/mipmap-mdpi-v4/icon.png
+ADDING: res/mipmap-mdpi-v4/icon_background.png
+ADDING: res/mipmap-mdpi-v4/icon_foreground.png
+ADDING: res/mipmap-mdpi-v4/icon_monochrome.png
+ADDING: res/mipmap-xhdpi-v4/icon.png
+ADDING: res/mipmap-xhdpi-v4/icon_background.png
+ADDING: res/mipmap-xhdpi-v4/icon_foreground.png
+ADDING: res/mipmap-xhdpi-v4/icon_monochrome.png
+ADDING: res/mipmap-xxhdpi-v4/icon.png
+ADDING: res/mipmap-xxhdpi-v4/icon_background.png
+ADDING: res/mipmap-xxhdpi-v4/icon_foreground.png
+ADDING: res/mipmap-xxhdpi-v4/icon_monochrome.png
+ADDING: res/mipmap-xxxhdpi-v4/icon.png
+ADDING: res/mipmap-xxxhdpi-v4/icon_background.png
+ADDING: res/mipmap-xxxhdpi-v4/icon_foreground.png
+ADDING: res/mipmap-xxxhdpi-v4/icon_monochrome.png
+ADDING: res/mipmap/icon.png
+ADDING: res/mipmap/icon_background.png
+ADDING: res/mipmap/icon_foreground.png
+ADDING: res/mipmap/icon_monochrome.png
+ADDING: res/xml/godot_provider_paths.xml
+ADDING: resources.arsc
+ADDING: DebugProbesKt.bin
+ADDING: kotlin/annotation/annotation.kotlin_builtins
+ADDING: kotlin/collections/collections.kotlin_builtins
+ADDING: kotlin/concurrent/atomics/atomics.kotlin_builtins
+ADDING: kotlin/coroutines/coroutines.kotlin_builtins
+ADDING: kotlin/internal/internal.kotlin_builtins
+ADDING: kotlin/kotlin.kotlin_builtins
+ADDING: kotlin/ranges/ranges.kotlin_builtins
+ADDING: kotlin/reflect/reflect.kotlin_builtins
+[   0% ] [90m[1mexport[22m | Adding files...[39m[0m
+Saving project files from res://.godot/imported/lab.jpg-dbadef3c4ba653b36beba356cdc3b06e.ctex into assets/.godot/imported/lab.jpg-dbadef3c4ba653b36beba356cdc3b06e.ctex
+Saving project files from res://assets/tracks/previews/lab.jpg.import into assets/assets/tracks/previews/lab.jpg.import
+Saving project files from res://.godot/imported/sierra.jpg-a292a574acb988103dbfa85ca71de395.ctex into assets/.godot/imported/sierra.jpg-a292a574acb988103dbfa85ca71de395.ctex
+Saving project files from res://assets/tracks/previews/sierra.jpg.import into assets/assets/tracks/previews/sierra.jpg.import
+Saving project files from res://assets/tracks/sierra/centerline.json into assets/assets/tracks/sierra/centerline.json
+Saving project files from res://.godot/imported/sierra_mobile.glb-df50306d566556561bcf05da5280d9ae.scn into assets/.godot/imported/sierra_mobile.glb-df50306d566556561bcf05da5280d9ae.scn
+Saving project files from res://assets/tracks/sierra/sierra_mobile.glb.import into assets/assets/tracks/sierra/sierra_mobile.glb.import
+Saving project files from res://.godot/imported/sierra_mobile_asphalt_basecolor.png-45e2d21d29982be3ff885d1077b3632a.ctex into assets/.godot/imported/sierra_mobile_asphalt_basecolor.png-45e2d21d29982be3ff885d1077b3632a.ctex
+Saving project files from res://assets/tracks/sierra/sierra_mobile_asphalt_basecolor.png.import into assets/assets/tracks/sierra/sierra_mobile_asphalt_basecolor.png.import
+Saving project files from res://.godot/imported/sierra_mobile_asphalt_normal.png-bff82bd7bacc18ad6bad6cad9c5f1d09.ctex into assets/.godot/imported/sierra_mobile_asphalt_normal.png-bff82bd7bacc18ad6bad6cad9c5f1d09.ctex
+Saving project files from res://assets/tracks/sierra/sierra_mobile_asphalt_normal.png.import into assets/assets/tracks/sierra/sierra_mobile_asphalt_normal.png.import
+Saving project files from res://.godot/imported/sierra_mobile_asphalt_orm.png-9a96e12adf320f7a3749db0150e47bc0.ctex into assets/.godot/imported/sierra_mobile_asphalt_orm.png-9a96e12adf320f7a3749db0150e47bc0.ctex
+Saving project files from res://assets/tracks/sierra/sierra_mobile_asphalt_orm.png.import into assets/assets/tracks/sierra/sierra_mobile_asphalt_orm.png.import
+Saving project files from res://.godot/imported/sierra_mobile_gravel_basecolor.png-5bc6cec4ed43a66e3eb4710a035721a2.ctex into assets/.godot/imported/sierra_mobile_gravel_basecolor.png-5bc6cec4ed43a66e3eb4710a035721a2.ctex
+Saving project files from res://assets/tracks/sierra/sierra_mobile_gravel_basecolor.png.import into assets/assets/tracks/sierra/sierra_mobile_gravel_basecolor.png.import
+Saving project files from res://.godot/imported/sierra_mobile_gravel_normal.png-69b07aba6e7794744dab3047e56e87c7.ctex into assets/.godot/imported/sierra_mobile_gravel_normal.png-69b07aba6e7794744dab3047e56e87c7.ctex
+Saving project files from res://assets/tracks/sierra/sierra_mobile_gravel_normal.png.import into assets/assets/tracks/sierra/sierra_mobile_gravel_normal.png.import
+Saving project files from res://.godot/imported/sierra_mobile_gravel_orm.png-981e2e7266972ba0133d90576a000a59.ctex into assets/.godot/imported/sierra_mobile_gravel_orm.png-981e2e7266972ba0133d90576a000a59.ctex
+Saving project files from res://assets/tracks/sierra/sierra_mobile_gravel_orm.png.import into assets/assets/tracks/sierra/sierra_mobile_gravel_orm.png.import
+Saving project files from res://.godot/imported/arctic_basecolor.png-485322c5c9b72e94cb84d79d36732aa7.ctex into assets/.godot/imported/arctic_basecolor.png-485322c5c9b72e94cb84d79d36732aa7.ctex
+Saving project files from res://assets/arctic_basecolor.png.import into assets/assets/arctic_basecolor.png.import
+Saving project files from res://.godot/imported/asphalt.png-b73a3d15c247eb563a9e28eea6db3d97.ctex into assets/.godot/imported/asphalt.png-b73a3d15c247eb563a9e28eea6db3d97.ctex
+Saving project files from res://assets/asphalt.png.import into assets/assets/asphalt.png.import
+Saving project files from res://.godot/imported/grass.png-a207bda4a53e32c7645a41ec6d1c234e.ctex into assets/.godot/imported/grass.png-a207bda4a53e32c7645a41ec6d1c234e.ctex
+Saving project files from res://assets/grass.png.import into assets/assets/grass.png.import
+Saving project files from res://assets/FONT_LICENSE.txt into assets/assets/FONT_LICENSE.txt
+Saving project files from res://.godot/imported/gt77_mobile.glb-90723fe24aa25acb2d4c75d108beaa91.scn into assets/.godot/imported/gt77_mobile.glb-90723fe24aa25acb2d4c75d108beaa91.scn
+Saving project files from res://assets/gt77_mobile.glb.import into assets/assets/gt77_mobile.glb.import
+Saving project files from res://.godot/imported/gt77_mobile_race_number.png-6abf19de231ce64108a105071292f37c.ctex into assets/.godot/imported/gt77_mobile_race_number.png-6abf19de231ce64108a105071292f37c.ctex
+Saving project files from res://assets/gt77_mobile_race_number.png.import into assets/assets/gt77_mobile_race_number.png.import
+Saving project files from res://.godot/imported/gt77_mobile_reference_basecolor.png-0a894ce15dbe1eb630f6c7efd92b669f.ctex into assets/.godot/imported/gt77_mobile_reference_basecolor.png-0a894ce15dbe1eb630f6c7efd92b669f.ctex
+Saving project files from res://assets/gt77_mobile_reference_basecolor.png.import into assets/assets/gt77_mobile_reference_basecolor.png.import
+Loading resource: res://main.tscn
+Loading resource: res://scripts/main.gd
+Saving project files from res://.godot/exported/133200997/export-3070c538c03ee49b7677ff960a3f5195-main.scn into assets/.godot/exported/133200997/export-3070c538c03ee49b7677ff960a3f5195-main.scn
+Saving project files from res://assets/GODOT_LICENSE.txt into assets/assets/GODOT_LICENSE.txt
+Saving project files from res://.godot/imported/icon.svg-56083ea2a1f1a4f1e49773bdc6d7826c.ctex into assets/.godot/imported/icon.svg-56083ea2a1f1a4f1e49773bdc6d7826c.ctex
+Saving project files from res://assets/icon.svg.import into assets/assets/icon.svg.import
+Saving project files from res://.godot/imported/mono.ttf-7af6f4935ac8c1c40cd099696bdce492.fontdata into assets/.godot/imported/mono.ttf-7af6f4935ac8c1c40cd099696bdce492.fontdata
+Saving project files from res://assets/mono.ttf.import into assets/assets/mono.ttf.import
+Saving project files from res://.godot/imported/pearl_basecolor.png-8e4356b0d2138bf508e6d9244be9d9f1.ctex into assets/.godot/imported/pearl_basecolor.png-8e4356b0d2138bf508e6d9244be9d9f1.ctex
+Saving project files from res://assets/pearl_basecolor.png.import into assets/assets/pearl_basecolor.png.import
+Saving project files from res://.godot/imported/reference_basecolor.png-45d5c8ad5922fef8bcaa37fc614cea6a.ctex into assets/.godot/imported/reference_basecolor.png-45d5c8ad5922fef8bcaa37fc614cea6a.ctex
+Saving project files from res://assets/reference_basecolor.png.import into assets/assets/reference_basecolor.png.import
+Saving project files from res://.godot/imported/regular.ttf-919354c3b29f2ddc6fd17695c3134116.fontdata into assets/.godot/imported/regular.ttf-919354c3b29f2ddc6fd17695c3134116.fontdata
+Saving project files from res://assets/regular.ttf.import into assets/assets/regular.ttf.import
+Saving project files from res://scripts/track_catalog.gdc into assets/scripts/track_catalog.gdc
+Saving project files from res://scripts/track_selector.gdc into assets/scripts/track_selector.gdc
+Saving project files from res://scripts/sierra_track.gdc into assets/scripts/sierra_track.gdc
+Saving project files from res://scripts/main.gdc into assets/scripts/main.gdc
+Saving project files from res://scripts/hud.gdc into assets/scripts/hud.gdc
+Saving project files from res://scripts/lap_tracker.gdc into assets/scripts/lap_tracker.gdc
+Saving project files from res://scripts/car.gdc into assets/scripts/car.gdc
+Saving project files from res://scripts/controls.gdc into assets/scripts/controls.gdc
+Saving project files from res://scripts/engine_audio.gdc into assets/scripts/engine_audio.gdc
+Saving project files from res://scripts/track.gdc into assets/scripts/track.gdc
+Saving project files from res://scripts/track_map.gdc into assets/scripts/track_map.gdc
+Saving project files from res://main.tscn.remap into assets/main.tscn.remap
+Saving project files from res://scripts/track_catalog.gd.remap into assets/scripts/track_catalog.gd.remap
+Saving project files from res://scripts/track_selector.gd.remap into assets/scripts/track_selector.gd.remap
+Saving project files from res://scripts/sierra_track.gd.remap into assets/scripts/sierra_track.gd.remap
+Saving project files from res://scripts/main.gd.remap into assets/scripts/main.gd.remap
+Saving project files from res://scripts/hud.gd.remap into assets/scripts/hud.gd.remap
+Saving project files from res://scripts/lap_tracker.gd.remap into assets/scripts/lap_tracker.gd.remap
+Saving project files from res://scripts/car.gd.remap into assets/scripts/car.gd.remap
+Saving project files from res://scripts/controls.gd.remap into assets/scripts/controls.gd.remap
+Saving project files from res://scripts/engine_audio.gd.remap into assets/scripts/engine_audio.gd.remap
+Saving project files from res://scripts/track.gd.remap into assets/scripts/track.gd.remap
+Saving project files from res://scripts/track_map.gd.remap into assets/scripts/track_map.gd.remap
+Saving project files from res://.godot/global_script_class_cache.cfg into assets/.godot/global_script_class_cache.cfg
+Saving project files from res://assets/icon.svg into assets/assets/icon.svg
+Saving project files from res://.godot/uid_cache.bin into assets/.godot/uid_cache.bin
+Saving project files from res://project.binary into assets/project.binary
+[  97% ] [90m[1mexport[22m | Aligning APK...[39m[0m
+[  98% ] [90m[1mexport[22m | Signing debug APK...[39m[0m
+Starting signing of the APK binary using /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner
+Signing debug binary using: 
+/usr/local/lib/android/sdk/build-tools/35.0.0/apksigner sign --verbose --ks /home/runner/.local/share/godot/keystores/debug.keystore --ks-pass pass:android --ks-key-alias androiddebugkey /home/runner/work/Race/Race/outputs/Race_GT77_Sierra_0.2.1.apk
+Signed
+
+[  99% ] [90m[1mexport[22m | Verifying APK...[39m[0m
+Verifying signed build using: 
+/usr/local/lib/android/sdk/build-tools/35.0.0/apksigner verify --verbose /home/runner/work/Race/Race/outputs/Race_GT77_Sierra_0.2.1.apk
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+
+Successfully completed signing build.
+[92m[ DONE ][39m [1mexport[22m
+[0m
+Script docs haven't been properly loaded or regenerated, so don't save them to disk.
+cannot connect to daemon at tcp:5037: Connection refused
+EditorSettings: Save OK!
+XR: Clearing primary interface
+XR: Removed interface "Native mobile"
+XR: Removed interface "OpenXR"
+Orphan StringName: Node (static: 5, total: 6)
+StringName: 1 unclaimed string names at exit.
