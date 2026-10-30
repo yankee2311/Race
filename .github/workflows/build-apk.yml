@@ -1,0 +1,75 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Race/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  export-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout (con Git LFS)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Instalar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Descargar Godot 4.5.1 y plantillas de exportación
+        run: |
+          cd /tmp
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip -O godot.zip
+          unzip -q godot.zip
+          sudo mv Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz -O templates.tpz
+          mkdir -p /tmp/t ~/.local/share/godot/export_templates
+          unzip -q templates.tpz -d /tmp/t
+          if [ -d /tmp/t/export_templates ]; then
+            mv /tmp/t/export_templates ~/.local/share/godot/export_templates/4.5.1.stable
+          else
+            mkdir ~/.local/share/godot/export_templates/4.5.1.stable
+            mv /tmp/t/* ~/.local/share/godot/export_templates/4.5.1.stable/ || true
+          fi
+          ls ~/.local/share/godot/export_templates/4.5.1.stable | head -20
+
+      - name: Configurar keystore debug (usa la clave incluida en el repo)
+        run: |
+          mkdir -p ~/.android ~/.config/godot
+          cp "$GITHUB_WORKSPACE/Race/build/debug.keystore" ~/.android/debug.keystore
+          cat > ~/.config/godot/editor_settings-4.5.tres <<EOF
+          config_version=5
+
+          [export]
+
+          android/debug_keystore="$HOME/.android/debug.keystore"
+          android/debug_keystore_user="androiddebugkey"
+          android/debug_keystore_pass="android"
+          EOF
+
+      - name: Importar recursos del proyecto (headless)
+        run: |
+          cd "$GITHUB_WORKSPACE/Race"
+          godot --headless --editor --import
+
+      - name: Exportar APK (debug)
+        run: |
+          cd "$GITHUB_WORKSPACE/Race"
+          mkdir -p ../outputs
+          godot --headless --export-debug "Android" "$GITHUB_WORKSPACE/outputs/Race_GT77_Sierra_0.2.1.apk"
+
+      - name: Subir APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: Race_GT77_Sierra_0.2.1-apk
+          path: outputs/*.apk
+          if-no-files-found: error
