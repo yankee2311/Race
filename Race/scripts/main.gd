@@ -6,6 +6,7 @@ const ControlsScript=preload("res://scripts/controls.gd")
 const HudScript=preload("res://scripts/hud.gd")
 const SelectorScript=preload("res://scripts/track_selector.gd")
 const Catalog=preload("res://scripts/track_catalog.gd")
+const UiTheme=preload("res://scripts/ui_theme.gd")
 const SierraScript=preload("res://scripts/sierra_track.gd")
 const LapTracker=preload("res://scripts/lap_tracker.gd")
 var selector
@@ -66,11 +67,7 @@ func _ready():
 	car.visible=true
 	camera=Camera3D.new();camera.near=.06;camera.far=4000;add_child(camera);camera.make_current()
 	ui=CanvasLayer.new();add_child(ui)
-	base_theme=Theme.new();base_theme.default_font=load("res://assets/regular.ttf");base_theme.default_font_size=18
-	base_theme.set_color("font_color","Button",Color("f2f6fa"));base_theme.set_color("font_hover_color","Button",Color.WHITE)
-	for state in ["normal","hover","pressed","focus"]:
-		var sb=StyleBoxFlat.new();sb.bg_color=Color("263543") if state=="normal" else Color("394f5f");sb.set_corner_radius_all(9);sb.content_margin_left=16;sb.content_margin_right=16;sb.content_margin_top=10;sb.content_margin_bottom=10
-		base_theme.set_stylebox(state,"Button",sb);base_theme.set_stylebox(state,"OptionButton",sb)
+	base_theme=UiTheme.make_theme()
 	controls=ControlsScript.new();ui.add_child(controls);controls.sensors_missing.connect(func():control_select.select(0);notify("Sensor no disponible: se activaron los botones."))
 	hud=HudScript.new();hud.car=car;hud.controls=controls;hud.track=track;hud.session=self;ui.add_child(hud)
 	_build_menu()
@@ -89,10 +86,12 @@ func _ready():
 	if "--capture" in OS.get_cmdline_user_args():screenshot_mode=true
 
 func label(parent:Control,text_:String,size_:int=18,color:Color=Color.WHITE)->Label:
-	var l=Label.new();l.text=text_;l.add_theme_font_size_override("font_size",size_);l.add_theme_color_override("font_color",color);l.mouse_filter=Control.MOUSE_FILTER_IGNORE;parent.add_child(l);return l
+	return UiTheme.label(parent,text_,size_,color)
 
 func button(parent:Control,text_:String,callable_:Callable)->Button:
-	var b=Button.new();b.text=text_;b.theme=base_theme;b.focus_mode=Control.FOCUS_NONE;b.pressed.connect(callable_);parent.add_child(b);return b
+	var b=UiTheme.button(parent,text_,callable_)
+	b.theme=base_theme
+	return b
 
 func option(parent:Control,items:Array,index:int)->OptionButton:
 	var o=OptionButton.new();o.theme=base_theme;o.focus_mode=Control.FOCUS_NONE
@@ -102,25 +101,25 @@ func option(parent:Control,items:Array,index:int)->OptionButton:
 func _build_menu():
 	menu=Control.new();menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);menu.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(menu)
 	var panel=Panel.new();panel.position=Vector2(24,24);panel.size=Vector2(416,672)
-	var sb=StyleBoxFlat.new();sb.bg_color=Color(.025,.045,.07,.94);sb.set_corner_radius_all(20);panel.add_theme_stylebox_override("panel",sb);menu.add_child(panel)
+	var sb=UiTheme.card(UiTheme.MENU_PANEL,20);panel.add_theme_stylebox_override("panel",sb);menu.add_child(panel)
 	label(panel,"GT77",58).position=Vector2(28,17)
-	label(panel,"DRIVE LAB  /  ANDROID",17,Color("59e8c9")).position=Vector2(31,86)
-	label(panel,"Una máquina. Tu forma de conducir.",16,Color("afc1cf")).position=Vector2(30,116)
-	label(panel,"ESTILO DE MANEJO",12,Color("91a7b9")).position=Vector2(30,160)
+	label(panel,"DRIVE LAB  /  ANDROID",17,UiTheme.MINT).position=Vector2(31,86)
+	label(panel,"Una máquina. Tu forma de conducir.",16,UiTheme.TEXT_SUB).position=Vector2(30,116)
+	label(panel,"ESTILO DE MANEJO",12,UiTheme.TEXT_LABEL).position=Vector2(30,160)
 	style_select=option(panel,["Asistido · ABS + TCS + estabilidad","Sport · ABS + TCS","Simulación · sin ayudas"],config.get_value("drive","style",1));style_select.position=Vector2(28,181);style_select.size=Vector2(360,44)
-	label(panel,"CONTROLES",12,Color("91a7b9")).position=Vector2(30,240)
+	label(panel,"CONTROLES",12,UiTheme.TEXT_LABEL).position=Vector2(30,240)
 	control_select=option(panel,["Botones en pantalla","Giroscopio / inclinación"],config.get_value("drive","controls",0));control_select.position=Vector2(28,261);control_select.size=Vector2(360,44)
-	label(panel,"PINTURA",12,Color("91a7b9")).position=Vector2(30,320)
+	label(panel,"PINTURA",12,UiTheme.TEXT_LABEL).position=Vector2(30,320)
 	skin_select=option(panel,["77 · Rojo y grafito","77 · Arctic cyan","77 · Pearl white"],config.get_value("drive","skin",0));skin_select.position=Vector2(28,341);skin_select.size=Vector2(360,44);skin_select.item_selected.connect(func(index):car.set_skin(index))
-	label(panel,"GIRO MÁXIMO DEL TELÉFONO",12,Color("91a7b9")).position=Vector2(30,403)
+	label(panel,"GIRO MÁXIMO DEL TELÉFONO",12,UiTheme.TEXT_LABEL).position=Vector2(30,403)
 	sensitivity=HSlider.new();sensitivity.min_value=20;sensitivity.max_value=55;sensitivity.step=1;sensitivity.value=config.get_value("drive","angle",32.0);sensitivity.position=Vector2(30,429);sensitivity.size=Vector2(225,25);panel.add_child(sensitivity)
-	var angle_label=label(panel,"32°",17,Color("59e8c9"));angle_label.position=Vector2(279,423);angle_label.text="%d°"%sensitivity.value;sensitivity.value_changed.connect(func(value):angle_label.text="%d°"%value)
+	var angle_label=label(panel,"32°",17,UiTheme.MINT);angle_label.position=Vector2(279,423);angle_label.text="%d°"%sensitivity.value;sensitivity.value_changed.connect(func(value):angle_label.text="%d°"%value)
 	inversion=CheckButton.new();inversion.text="Invertir giro";inversion.theme=base_theme;inversion.position=Vector2(25,463);inversion.button_pressed=config.get_value("drive","invert",false);panel.add_child(inversion)
 	sound=CheckButton.new();sound.text="Audio";sound.theme=base_theme;sound.position=Vector2(225,463);sound.button_pressed=config.get_value("drive","sound",true);panel.add_child(sound)
 	shadows=CheckButton.new();shadows.text="Sombras · calidad visual";shadows.theme=base_theme;shadows.position=Vector2(25,505);shadows.button_pressed=config.get_value("drive","shadows",true);panel.add_child(shadows)
 	var start=button(panel,"GUARDAR Y ELEGIR PISTA   →",func():_apply_settings();menu.hide();selector.show());start.position=Vector2(28,564);start.size=Vector2(360,58)
-	var active=StyleBoxFlat.new();active.bg_color=Color("dd3847");active.set_corner_radius_all(10);start.add_theme_stylebox_override("normal",active)
-	label(panel,"VERSIÓN 0.2  ·  DOS CIRCUITOS",11,Color("8ba0b1")).position=Vector2(31,640)
+	var active=UiTheme.card(UiTheme.RED,10);start.add_theme_stylebox_override("normal",active)
+	label(panel,"VERSIÓN 0.2.1  ·  DOS CIRCUITOS",11,UiTheme.TEXT_FAINT).position=Vector2(31,640)
 	var note=label(menu,"SUSPENSIÓN POR RUEDA  /  AERODINÁMICA\nCAPÓ · ONBOARD · TERCERA PERSONA",14,Color(.92,.97,1,.9));note.position=Vector2(480,643);note.name="Note"
 
 func _build_action_ui():
@@ -133,13 +132,24 @@ func _build_action_ui():
 
 func _build_pause():
 	pause_menu=Control.new();pause_menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);ui.add_child(pause_menu);pause_menu.visible=false
-	var dim=ColorRect.new();dim.color=Color(.015,.025,.04,.87);dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);pause_menu.add_child(dim)
-	var panel=VBoxContainer.new();panel.name="Buttons";panel.position=Vector2(440,190);panel.size=Vector2(400,340);panel.add_theme_constant_override("separation",18);pause_menu.add_child(panel)
-	var title=label(panel,"PAUSA EN BOXES",30);title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	button(panel,"CONTINUAR",_resume)
-	button(panel,"CENTRAR GIRO",func():controls.calibrate();_resume();notify("Sensor calibrado."))
-	button(panel,"RECOLOCAR COCHE",func():_resume();_reset())
-	button(panel,"MENÚ Y AJUSTES",_back_to_menu)
+	var dim=ColorRect.new();dim.color=UiTheme.PAUSED_DIM;dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);pause_menu.add_child(dim)
+	# Tarjeta central que se auto-dimensiona con su contenido (sin scale manual).
+	var card=PanelContainer.new();card.name="Card"
+	card.set_anchors_and_offsets_preset(Control.PRESET_CENTER);card.grow_horizontal=Control.GROW_DIRECTION_BOTH;card.grow_vertical=Control.GROW_DIRECTION_BOTH
+	card.add_theme_stylebox_override("panel",UiTheme.card(Color(.025,.045,.07,.96),20,UiTheme.BORDER_SOFT,1))
+	pause_menu.add_child(card)
+	var margin=MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",30);margin.add_theme_constant_override("margin_right",30)
+	margin.add_theme_constant_override("margin_top",26);margin.add_theme_constant_override("margin_bottom",26)
+	card.add_child(margin)
+	var box=VBoxContainer.new();box.add_theme_constant_override("separation",14);margin.add_child(box)
+	var title=label(box,"PAUSA EN BOXES",30);title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var sub=label(box,"EL CRONÓMETRO ESTÁ DETENIDO",12,UiTheme.TEXT_FAINT);sub.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	for item in [["CONTINUAR",_resume],
+	["CENTRAR GIRO",func():controls.calibrate();_resume();notify("Sensor calibrado.")],
+	["RECOLOCAR COCHE",func():_resume();_reset()],
+	["MENÚ Y AJUSTES",_back_to_menu]]:
+		var b=button(box,item[0],item[1]);b.custom_minimum_size=Vector2(330,52)
 
 func _apply_settings():
 	car.driving_mode=style_select.selected;controls.mode=control_select.selected;controls.full_angle=sensitivity.value;controls.invert_tilt=inversion.button_pressed
@@ -308,18 +318,18 @@ func _process(dt):
 			get_tree().quit()
 
 func _layout(size_:Vector2):
-	camera_button.position=Vector2(size_.x-228,20);camera_button.size=Vector2(132,47)
-	action_ui.get_node("Pause").position=Vector2(size_.x-81,20);action_ui.get_node("Pause").size=Vector2(58,47)
-	action_ui.get_node("Reset").position=Vector2(size_.x-168,87);action_ui.get_node("Reset").size=Vector2(145,39)
-	reverse_button.position=Vector2(28,size_.y-223);reverse_button.size=Vector2(65,48)
-	calibrate_button.position=Vector2(28,size_.y-285);calibrate_button.size=Vector2(190,43)
-	pause_menu.get_node("Buttons").position=Vector2(size_.x*.5-200,size_.y*.5-160)
+	# Safe area (notch / barras del sistema en Android): no tapar cámara ni gestos.
+	var ins=UiTheme.safe_insets(get_viewport());var sl=ins.x;var st=ins.y;var sr=ins.z;var sb_=ins.w
+	camera_button.position=Vector2(size_.x-228-sr,20+st);camera_button.size=Vector2(132,47)
+	action_ui.get_node("Pause").position=Vector2(size_.x-81-sr,20+st);action_ui.get_node("Pause").size=Vector2(58,47)
+	action_ui.get_node("Reset").position=Vector2(size_.x-168-sr,87+st);action_ui.get_node("Reset").size=Vector2(145,39)
+	reverse_button.position=Vector2(28+sl,size_.y-223-sb_);reverse_button.size=Vector2(65,48)
+	calibrate_button.position=Vector2(28+sl,size_.y-285-sb_);calibrate_button.size=Vector2(190,43)
 	menu.get_node("Note").position=Vector2(maxf(24,size_.x-430),size_.y-77)
 	var menu_panel=menu.get_child(0)
 	var factor=minf(1.0,minf((size_.y-20)/700.0,(size_.x-20)/840.0))
 	menu_panel.scale=Vector2(factor,factor)
 	menu_panel.position=Vector2(12,12)
-	pause_menu.get_node("Buttons").scale=Vector2(minf(1.0,size_.x/440.0),minf(1.0,size_.y/390.0))
 
 func time_string(seconds:float)->String:
 	var ms=roundi(seconds*1000)

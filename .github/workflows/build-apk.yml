@@ -61,6 +61,17 @@ jobs:
           EOF
           echo "--- editor_settings ---"; cat ~/.config/godot/editor_settings-4.5.tres
 
+      - name: Validar sintaxis de scripts (headless)
+        run: |
+          cd "$GITHUB_WORKSPACE/Race"
+          errores=0
+          for script in scripts/*.gd tests/*.gd; do
+            if ! godot --headless --check-only --script "res://$script" 2>&1 | tee -a ../script_check.log; then
+              echo "ERROR de compilación: $script"; errores=1
+            fi
+          done
+          exit $errores
+
       - name: Importar recursos del proyecto (headless)
         run: |
           cd "$GITHUB_WORKSPACE/Race"
@@ -109,6 +120,7 @@ jobs:
           path: |
             import.log
             export.log
+            script_check.log
           if-no-files-found: warn
 
       - name: Subir APK como artefacto
