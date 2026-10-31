@@ -1,6 +1,5 @@
 extends Control
 class_name DriveControls
-const UiTheme=preload("res://scripts/ui_theme.gd")
 
 var active=false
 var mode=0
@@ -21,14 +20,12 @@ var gyro_available=false
 var sensor_wait=0.0
 var status="BOTONES"
 var target_steering=0.0
-var _font:Font
 signal sensors_missing
 
 func _ready():
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter=Control.MOUSE_FILTER_IGNORE
 	process_mode=Node.PROCESS_MODE_ALWAYS
-	_font=load(UiTheme.FONT_PATH)
 
 func calibrate():
 	var g=Input.get_gravity()
@@ -41,16 +38,14 @@ func clear():
 
 func make_zones():
 	var size_=get_viewport_rect().size
-	# Safe area: nunca dibujar ni capturar toques bajo el notch o los gestos del sistema.
-	var ins=UiTheme.safe_insets(get_viewport())
-	var w=size_.x-ins.z;var h=size_.y-ins.w;var x0=ins.x
+	var w=size_.x;var h=size_.y
 	if mode==1:
-		zones={"gas":Rect2(x0+w-160,h-210,135,177),"brake":Rect2(x0+24,h-185,135,152),"hand":Rect2(x0+24,h-252,135,57)}
+		zones={"gas":Rect2(w-160,h-210,135,177),"brake":Rect2(24,h-185,135,152),"hand":Rect2(24,h-252,135,57)}
 	else:
-		zones={"gas":Rect2(x0+w-148,h-199,118,164),"brake":Rect2(x0+w-282,h-157,112,122),"hand":Rect2(x0+w-282,h-223,112,53)}
+		zones={"gas":Rect2(w-148,h-199,118,164),"brake":Rect2(w-282,h-157,112,122),"hand":Rect2(w-282,h-223,112,53)}
 	if mode==0:
-		zones["left"]=Rect2(x0+28,h-157,112,122)
-		zones["right"]=Rect2(x0+156,h-157,112,122)
+		zones["left"]=Rect2(28,h-157,112,122)
+		zones["right"]=Rect2(156,h-157,112,122)
 
 func _input(event):
 	if not active or get_tree().paused:return
@@ -115,13 +110,13 @@ func _process(dt):
 func _draw():
 	if not active:return
 	make_zones()
-	var font=_font
+	var font=ThemeDB.fallback_font
 	for key in zones:
 		var rect:Rect2=zones[key]
 		var on=pressed(key)
-		var style=StyleBoxFlat.new();style.bg_color=UiTheme.TOUCH_ZONE if not on else UiTheme.TOUCH_ACTIVE
-		if key=="brake" and on:style.bg_color=UiTheme.RED_BRAKE
-		style.set_corner_radius_all(17);style.set_border_width_all(2);style.border_color=Color(.7,.82,.88,.25) if not on else UiTheme.MINT_GLOW
+		var style=StyleBoxFlat.new();style.bg_color=Color(.06,.09,.13,.78) if not on else Color(.12,.6,.54,.90)
+		if key=="brake" and on:style.bg_color=Color(.75,.15,.20,.9)
+		style.set_corner_radius_all(17);style.set_border_width_all(2);style.border_color=Color(.7,.82,.88,.25) if not on else Color("63efce")
 		draw_style_box(style,rect)
 		var label={"gas":"GAS","brake":"FRENO","hand":"F. MANO","left":"◀","right":"▶"}[key]
 		var font_size=26 if key in ["gas","left","right"] else 19
@@ -129,14 +124,14 @@ func _draw():
 		draw_string(font,rect.get_center()+Vector2(-tw*.5,8),label,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,Color.WHITE)
 		if key in ["gas","brake"]:
 			var fraction=pedal_value(key)
-			draw_rect(Rect2(rect.position.x+5,rect.end.y-6-(rect.size.y-12)*fraction,7,(rect.size.y-12)*fraction),UiTheme.MINT)
+			draw_rect(Rect2(rect.position.x+5,rect.end.y-6-(rect.size.y-12)*fraction,5,(rect.size.y-12)*fraction),Color("59e8c9"))
 		if key=="gas":
 			for j in range(4):draw_line(rect.position+Vector2(28,25+j*10),rect.position+Vector2(rect.size.x-28,25+j*10),Color(.8,1,.95,.3),2)
 	if mode==1:
-		var center=Vector2(125+UiTheme.safe_insets(get_viewport()).x,get_viewport_rect().size.y-103)
+		var center=Vector2(125,get_viewport_rect().size.y-103)
 		draw_arc(center,48,0,TAU,48,Color(.8,.92,1,.42),4)
 		var angle=steering*.9
 		var offset=Vector2(cos(angle),sin(angle))*43
-		draw_line(center-offset,center+offset,UiTheme.MINT,5)
-		draw_circle(center,7,UiTheme.MINT)
+		draw_line(center-offset,center+offset,Color("59e8c9"),5)
+		draw_circle(center,7,Color("59e8c9"))
 		draw_string(font,center+Vector2(-65,74),"INCLINA PARA GIRAR",HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color(.8,.9,1))
