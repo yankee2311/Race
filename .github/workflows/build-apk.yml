@@ -77,14 +77,14 @@ jobs:
           set -euo pipefail
           mkdir -p outputs
           godot --headless --path Race --export-debug Android "$GITHUB_WORKSPACE/outputs/RACE_0.3.1.apk" 2>&1 | tee export.log
-          test -s outputs/RACE_0.3.0.apk
-          unzip -l outputs/RACE_0.3.0.apk > /tmp/apk.txt
+          test -s outputs/RACE_0.3.1.apk
+          unzip -l outputs/RACE_0.3.1.apk > /tmp/apk.txt
           grep -E 'imported/gt77_mobile.glb-.*\.scn' /tmp/apk.txt
           grep -E 'imported/sierra_mobile.glb-.*\.scn' /tmp/apk.txt
           grep 'data/vehicles.json' /tmp/apk.txt
           grep 'data/tracks.json' /tmp/apk.txt
           cd outputs
-          sha256sum RACE_0.3.0.apk > SHA256SUMS.txt
+          sha256sum RACE_0.3.1.apk > SHA256SUMS.txt
       - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4
