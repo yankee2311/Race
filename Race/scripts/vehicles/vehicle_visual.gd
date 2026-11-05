@@ -23,7 +23,7 @@ static func loft(parent:Node3D,name_:String,sections:Array,mat:Material)->MeshIn
 			for point in [rings[i][j],rings[i+1][j],rings[i+1][next],rings[i][j],rings[i+1][next],rings[i][next]]:surface.add_vertex(point)
 	for end in [0,rings.size()-1]:
 		for j in range(1,7):
-			for index in ([0,j+1,j] if end==0 else [0,j,j+1]):surface.add_vertex(rings[end][index])
+			for index in ([0,j,j+1] if end==0 else [0,j+1,j]):surface.add_vertex(rings[end][index])
 	surface.generate_normals()
 	var node=MeshInstance3D.new();node.name=name_;node.mesh=surface.commit();parent.add_child(node);return node
 

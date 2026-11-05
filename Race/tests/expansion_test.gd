@@ -32,6 +32,14 @@ func run():
 			car.steering_input=.35;car.throttle_input=.25;await frames(120);car.steering_input=-.35;await frames(120);car.steering_input=0;await frames(120)
 			var stable=car.position.is_finite() and car.position.y<1.5 and car.global_basis.y.y>.65
 			check(stable,"lane change mode %d at %d km/h"%[mode,speed]);report.stability.append({"mode":mode,"speed":speed,"upright":car.global_basis.y.y,"height":car.position.y})
+	var ghost=load("res://scripts/gameplay/ghost.gd").new();world.add_child(ghost)
+	ghost.configure("test/ghost",Vehicles.get_vehicle("gt77"))
+	ghost.recording=[[0,0,1,0,0,0,0,1],[1,10,1,0,0,0,0,1]]
+	check(ghost.save_best(),"ghost recording saves")
+	ghost.configure("test/ghost",Vehicles.get_vehicle("gt77"));ghost.tick(.25,car)
+	check(ghost.samples.size()==2 and absf(ghost.position.x-2.5)<.01,"ghost reload and interpolation")
+	ghost.new_lap();check(ghost.elapsed==0 and ghost.recording.is_empty(),"ghost resets at start line")
+	DirAccess.remove_absolute("user://ghost_"+"test/ghost".sha256_text()+".json")
 	world.queue_free();await process_frame;await physics_frame
 	for entry in Catalog.ENTRIES:
 		if entry.id in ["lab","sierra"]:continue
@@ -58,6 +66,15 @@ func run():
 	rules.begin(1,1000,0);rules.tick(1.1,0,false,30,0,1,0);check(not rules.valid,"off-track excursion invalidates lap")
 	check(not rules.finish_lap() and rules.laps==0,"invalid lap cannot count toward race")
 	check(rules.finish_lap() and rules.laps==1,"following clean lap may count")
+	rules.begin(8,1800,0);rules.tick(3,0,true,0,0,0,0)
+	for i in range(42):rules.tick(.1,float(i)*10,true,80,0,1,0)
+	check(rules.completed and rules.travel>=402,"drag finishes beyond 402 metres")
+	rules.begin(2,1000,0);rules.tick(3,0,true,0,0,0,0)
+	for i in range(3):rules.finish_lap()
+	rules.tick(.1,0,true,50,0,1,0);check(rules.completed,"race finishes after three valid laps")
+	rules.begin(9,1000,0);rules.tick(.1,0,true,61,0,1,0);rules.tick(.1,0,true,2,0,0,1)
+	for i in range(101):rules.tick(.1,float(i),true,40,0,1,0)
+	check(rules.completed and rules.academy_step==2,"academy requires acceleration braking and controlled driving")
 	var profile=load("res://scripts/core/profile.gd").new();profile.path="user://test_profile.json"
 	check(not profile.buy("gt77","motor"),"insufficient credits do not buy upgrade")
 	profile.reward(3000,50);check(profile.buy("gt77","motor") and profile.level("gt77","motor")==1 and profile.data.credits==2500,"purchase deducts correct amount")

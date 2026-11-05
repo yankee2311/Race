@@ -49,7 +49,8 @@ func _ready():
 					var node=MeshInstance3D.new();var cone=CylinderMesh.new();cone.top_radius=0;cone.bottom_radius=height*.32;cone.height=height;cone.radial_segments=7
 					node.mesh=cone;node.position=pos;node.material_override=scenery;add_child(node);node.visibility_range_end=600
 	if definition.biome in ["coast","tropical"]:
-		var water=material(Color("2384a5"),.25);box("Ocean",Vector3(0,-.9,0),Vector3(6000,.1,6000),water)
+		strip(-28,28,-.16,terrain,false,"CoastalVerge")
+		var water=material(Color("2384a5"),.25);box("Ocean",Vector3(0,-.35,0),Vector3(6000,.1,6000),water)
 	if urban:
 		var env:Environment=get_child(0).environment
 		env.ambient_light_energy=.65;sky_sun.light_energy=.35
