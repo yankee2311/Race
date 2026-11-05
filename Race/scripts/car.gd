@@ -115,6 +115,12 @@ func request_reset(where:Transform3D):
 	respawn_transform=where;respawn_requested=true
 
 func _integrate_forces(state:PhysicsDirectBodyState3D):
+	if not state.transform.is_finite() or not state.linear_velocity.is_finite() or not state.angular_velocity.is_finite():
+		state.transform=respawn_transform if respawn_transform.is_finite() else Transform3D(Basis.IDENTITY,Vector3(0,1,0))
+		state.linear_velocity=Vector3.ZERO;state.angular_velocity=Vector3.ZERO
+		respawn_requested=false;last_velocity=Vector3.ZERO
+		print("RACE_DIAG physics=nonfinite_recovered")
+		return
 	if respawn_requested:
 		state.transform=respawn_transform;state.linear_velocity=Vector3.ZERO;state.angular_velocity=Vector3.ZERO
 		for w in wheels:w.omega=0.0;w.length=REST;w.load=0.0
