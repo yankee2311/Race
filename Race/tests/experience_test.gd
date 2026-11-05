@@ -35,6 +35,13 @@ func run():
 		check(game.rules.mode==mode and game.playing,"mode starts: "+str(mode))
 		check(game.car.contacts>=3,"mode spawn contacts: "+str(mode))
 		if mode in [2,3,7]:check(game.rivals.size()==5 and game.rivals[0].distance>-8,"AI advances after countdown")
+		if mode==2:
+			game.laps=0;game.lap_tracker.armed=true;game.rules.travel=game.track.length_m*8
+			game._update_ranking(20)
+			check(game.ranking_distance<game.track.length_m,"invalid travel cannot add laps to ranking")
+			var rival=game.rivals[0];rival.finished=true;rival.finish_time=1
+			game._update_ranking(20);check(game.rules.position>=2,"already finished rival stays ahead")
+			rival.finished=false
 		if mode==8:check(game.track.track_id=="drag_strip","drag uses dedicated straight")
 		if mode in [2,3,7,8]:await shot("mode_"+str(mode))
 		if mode==3:

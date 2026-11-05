@@ -70,6 +70,7 @@ var photo_angle=0.0
 var photo_height=2.0
 var daily_fast=0.0
 var results_paid=false
+var ranking_distance=0.0
 var initial_environment:Environment
 var screenshot_mode=false
 
@@ -298,10 +299,12 @@ func _physics_process(dt):
 	var ready=rules.countdown<=0
 	car.throttle_input=controls.throttle if ready else 0.0;car.brake_input=controls.brake if ready else 1.0;car.steering_input=controls.steering if ready else 0.0;car.handbrake_input=controls.handbrake if ready else 1.0
 	if not ready:return
-	for rival in rivals:rival.tick(dt,car.position)
-	rules.position=1
+	var race_goal=track.length_m*rules.target_laps+track.length_m-track.progress_at(track.start_transform.origin)
 	for rival in rivals:
-		if rival.distance>rules.travel:rules.position+=1
+		rival.tick(dt,car.position)
+		if rules.mode in [2,3] and not rival.finished and rival.distance>=race_goal:
+			rival.finished=true;rival.finish_time=rules.elapsed;rival.distance=race_goal;rival.place()
+	_update_ranking(progress)
 	if rules.mode==7 and rules.elapsed>=rules.elimination_at:
 		rules.elimination_at+=30
 		if rules.position==rivals.size()+1:rules.completed=true;rules.message="Has sido eliminado"
@@ -339,7 +342,14 @@ func _physics_process(dt):
 	if car.position.y<-12:_reset()
 	vibration_cooldown=maxf(0,vibration_cooldown-dt)
 	if vibration.button_pressed and vibration_cooldown<=0 and car.speed_kmh>20 and car.get_contact_count()>0:Input.vibrate_handheld(30,.3);vibration_cooldown=.5
-	if rules.completed:_finish_event()
+	if rules.completed:_update_ranking(progress);_finish_event()
+func _update_ranking(progress:float):
+	# Only accepted laps advance classification. A shortcut never adds a lap to the ranking.
+	ranking_distance=float(laps+(1 if lap_tracker.armed else 0))*track.length_m+progress-track.progress_at(track.start_transform.origin)
+	rules.position=1
+	for rival in rivals:
+		if rival.finished or rival.distance>ranking_distance:rules.position+=1
+
 func _daily(id:String,value:float,target:float,reward:int):
 	if value<target:return
 	var date=Time.get_date_string_from_system();var key=date+"/"+id
@@ -353,9 +363,9 @@ func _finish_event():
 	if success:profile.reward(reward,100)
 	var text="%s\n%s\nTiempo: %s\nPosición: %d / %d\nPuntos drift: %d\nRecompensa: %d CR"%[game_mode,rules.message,time_string(rules.elapsed),rules.position,rivals.size()+1,int(rules.score),reward]
 	if rules.mode==3:
-		var ranking=[{"id":0,"distance":rules.travel}]
-		for i in range(rivals.size()):ranking.append({"id":i+1,"distance":rivals[i].distance})
-		ranking.sort_custom(func(a,b):return a.distance>b.distance)
+		var ranking=[{"id":0,"distance":ranking_distance,"time":rules.elapsed}]
+		for i in range(rivals.size()):ranking.append({"id":i+1,"distance":rivals[i].distance,"time":rivals[i].finish_time})
+		ranking.sort_custom(func(a,b):return a.time<b.time if a.time!=b.time else a.distance>b.distance)
 		for i in range(ranking.size()):championship_scores[ranking[i].id]+=[10,8,6,4,2,1][i]
 		text+="\n\nCAMPEONATO · RONDA %d / 3\n"%(championship_round+1)
 		for i in range(championship_scores.size()):text+=("TÚ" if i==0 else ["VEGA","CRUZ","SOL","NOVA","RÍOS"][i-1])+": %d puntos\n"%championship_scores[i]

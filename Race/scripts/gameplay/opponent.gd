@@ -7,6 +7,7 @@ var pace=1.0
 var lane=0.0
 var speed=0.0
 var finished=false
+var finish_time=INF
 var driver_name=""
 var visual:Node3D
 var wheels=[]
