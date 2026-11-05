@@ -170,3 +170,12 @@ func closest_index(point:Vector3)->int:
 func reset_near(point:Vector3)->Transform3D:
 	var i=closest_index(point)
 	return Transform3D(Basis.looking_at(tangents[i],Vector3.UP),points[i]+Vector3.UP*.75)
+
+func road_distance(point:Vector3)->float:
+	var i=closest_index(point);var best=INF
+	for start in [(i-1+points.size())%points.size(),i]:
+		var edge=points[(start+1)%points.size()]-points[start]
+		var t=clampf((point-points[start]).dot(edge)/maxf(edge.length_squared(),.001),0,1)
+		var delta=point-(points[start]+edge*t)
+		best=minf(best,Vector2(delta.x,delta.z).length())
+	return best

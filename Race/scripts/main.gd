@@ -1,19 +1,20 @@
 extends Node3D
-
 const CarScript=preload("res://scripts/car.gd")
 const TrackScript=preload("res://scripts/track.gd")
+const SierraScript=preload("res://scripts/sierra_track.gd")
+const ExpansionScript=preload("res://scripts/expansion_track.gd")
+const Catalog=preload("res://scripts/track_catalog.gd")
+const Vehicles=preload("res://scripts/vehicles/vehicle_catalog.gd")
+const SelectorScript=preload("res://scripts/track_selector.gd")
 const ControlsScript=preload("res://scripts/controls.gd")
 const HudScript=preload("res://scripts/hud.gd")
-const SelectorScript=preload("res://scripts/track_selector.gd")
-const Catalog=preload("res://scripts/track_catalog.gd")
-const SierraScript=preload("res://scripts/sierra_track.gd")
 const LapTracker=preload("res://scripts/lap_tracker.gd")
-var selector
-var selected_track_id="sierra"
-var loaded_track_id="lab"
-var loading_track=false
+const Rules=preload("res://scripts/gameplay/race_rules.gd")
+const Safe=preload("res://scripts/ui/safe_area.gd")
+var profile=preload("res://scripts/core/profile.gd").new()
+var rules=Rules.new()
 var lap_tracker=LapTracker.new()
-const AudioScript=preload("res://scripts/engine_audio.gd")
+var selector
 var car
 var track
 var controls
@@ -23,208 +24,261 @@ var ui:CanvasLayer
 var menu:Control
 var pause_menu:Control
 var action_ui:Control
+var results:Control
+var result_label:Label
+var continue_button:Button
 var style_select:OptionButton
 var control_select:OptionButton
-var skin_select:OptionButton
-var camera_button:Button
-var calibrate_button:Button
-var reverse_button:Button
+var quality_select:OptionButton
+var fps_select:OptionButton
 var sensitivity:HSlider
 var inversion:CheckButton
 var sound:CheckButton
 var shadows:CheckButton
+var lefty:CheckButton
+var vibration:CheckButton
+var ghost_check:CheckButton
 var audio_player
+var ghost
+var rain:CPUParticles3D
+var rivals:Array=[]
+var selected_track_id="sierra"
+var loaded_track_id="lab"
+var loading_track=false
 var playing=false
 var camera_mode=2
-var menu_time=0.0
 var lap_time=0.0
 var best_lap=0.0
 var laps=0
-var next_sector=1
-var last_z=0.0
 var message=""
 var message_time=0.0
-var skid_timer=0.0
-var cached_size=Vector2.ZERO
+var game_mode="libre"
 var config=ConfigFile.new()
 var base_theme:Theme
-var screenshot_mode=false
+var record_key=""
+var menu_time=0.0
+var skid_timer=0.0
 var vibration_cooldown=0.0
-var game_mode="libre"
-var snapshot_timer=0.0
+var championship_round=0
+var championship_scores=[0,0,0,0,0,0]
+var championship_tracks=["arena","coast","sierra"]
+var photo_ui:Control
+var photo_mode=false
+var sector_delta=0.0
+var last_sector=0
+var photo_angle=0.0
+var photo_height=2.0
+var daily_fast=0.0
+var results_paid=false
+var initial_environment:Environment
+var screenshot_mode=false
 
 func _ready():
-	process_mode=Node.PROCESS_MODE_ALWAYS
-	get_tree().quit_on_go_back=false
+	process_mode=Node.PROCESS_MODE_ALWAYS;get_tree().quit_on_go_back=false
 	DisplayServer.screen_set_keep_on(true)
-	Engine.max_fps=60
-	config.load("user://settings.cfg")
+	if OS.get_name()=="Android":DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	profile.load_profile();config.load("user://settings.cfg")
 	selected_track_id=Catalog.get_entry(config.get_value("session","selected_track","sierra")).id
-	best_lap=config.get_value("records",selected_track_id,0.0)
 	track=TrackScript.new();add_child(track)
 	car=CarScript.new();add_child(car);car.transform=track.start_transform;car.freeze=true
-	car.visible=true
 	camera=Camera3D.new();camera.near=.06;camera.far=4000;add_child(camera);camera.make_current()
 	ui=CanvasLayer.new();add_child(ui)
 	base_theme=Theme.new();base_theme.default_font=load("res://assets/regular.ttf");base_theme.default_font_size=18
-	base_theme.set_color("font_color","Button",Color("f2f6fa"));base_theme.set_color("font_hover_color","Button",Color.WHITE)
 	for state in ["normal","hover","pressed","focus"]:
-		var sb=StyleBoxFlat.new();sb.bg_color=Color("263543") if state=="normal" else Color("394f5f");sb.set_corner_radius_all(9);sb.content_margin_left=16;sb.content_margin_right=16;sb.content_margin_top=10;sb.content_margin_bottom=10
+		var sb=StyleBoxFlat.new();sb.bg_color=Color("203347") if state=="normal" else Color("35556c");sb.set_corner_radius_all(8)
+		sb.content_margin_left=14;sb.content_margin_right=14;sb.content_margin_top=8;sb.content_margin_bottom=8
 		base_theme.set_stylebox(state,"Button",sb);base_theme.set_stylebox(state,"OptionButton",sb)
-	controls=ControlsScript.new();ui.add_child(controls);controls.sensors_missing.connect(func():control_select.select(0);notify("Sensor no disponible: se activaron los botones."))
+	controls=ControlsScript.new();ui.add_child(controls);controls.sensors_missing.connect(func():control_select.select(0);notify("Sensor no disponible. Botones activados."))
 	hud=HudScript.new();hud.car=car;hud.controls=controls;hud.track=track;hud.session=self;ui.add_child(hud)
-	_build_menu()
-	menu.hide()
-	selector=SelectorScript.new();selector.theme=base_theme;selector.selected_id=selected_track_id
-	ui.add_child(selector)
-	selector.selected.connect(_select_track)
-	selector.start_requested.connect(_start)
+	_build_settings()
+	selector=SelectorScript.new();selector.theme=base_theme;selector.selected_id=selected_track_id;selector.profile=profile
+	selector.vehicle_id=str(profile.data.settings.get("vehicle","gt77"));ui.add_child(selector)
+	selector.selected.connect(_select_track);selector.start_requested.connect(func():championship_round=0;championship_scores=[0,0,0,0,0,0];_start())
 	selector.settings_requested.connect(func():selector.hide();menu.show())
-	_build_action_ui()
-	_build_pause()
-	audio_player=AudioScript.new();audio_player.car=car;add_child(audio_player)
-	_apply_settings()
-	controls.calibrate()
-	last_z=car.position.z
-	if "--capture" in OS.get_cmdline_user_args():screenshot_mode=true
+	selector.vehicle_selected.connect(_preview_vehicle)
+	selector.preview_requested.connect(func():selector.hide();_open_photo())
+	selector.upgrade_requested.connect(func(component):profile.buy(selector.vehicle_id,component);selector.refresh_profile())
+	_build_actions();_build_pause();_build_results();_build_photo()
+	audio_player=preload("res://scripts/engine_audio.gd").new();audio_player.car=car;add_child(audio_player)
+	ghost=preload("res://scripts/gameplay/ghost.gd").new();add_child(ghost);ghost.hide()
+	_apply_settings();_preview_vehicle(selector.vehicle_id)
 
-func label(parent:Control,text_:String,size_:int=18,color:Color=Color.WHITE)->Label:
-	var l=Label.new();l.text=text_;l.add_theme_font_size_override("font_size",size_);l.add_theme_color_override("font_color",color);l.mouse_filter=Control.MOUSE_FILTER_IGNORE;parent.add_child(l);return l
-
-func button(parent:Control,text_:String,callable_:Callable)->Button:
-	var b=Button.new();b.text=text_;b.theme=base_theme;b.focus_mode=Control.FOCUS_NONE;b.pressed.connect(callable_);parent.add_child(b);return b
-
-func option(parent:Control,items:Array,index:int)->OptionButton:
-	var o=OptionButton.new();o.theme=base_theme;o.focus_mode=Control.FOCUS_NONE
+func label_(parent:Node,text_:String,font_size:int=18)->Label:
+	var label=Label.new();label.text=text_;label.add_theme_font_size_override("font_size",font_size);parent.add_child(label);return label
+func button(parent:Node,text_:String,callback:Callable)->Button:
+	var b=Button.new();b.text=text_;b.theme=base_theme;b.custom_minimum_size.y=44;b.pressed.connect(callback);parent.add_child(b);return b
+func choose(parent:Node,caption:String,items:Array,section:String,key:String,default:int)->OptionButton:
+	label_(parent,caption,14)
+	var o=OptionButton.new();o.theme=base_theme;o.custom_minimum_size.y=44
 	for item in items:o.add_item(item)
-	o.select(index);parent.add_child(o);return o
-
-func _build_menu():
-	menu=Control.new();menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);menu.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(menu)
-	var panel=Panel.new();panel.position=Vector2(24,24);panel.size=Vector2(416,672)
-	var sb=StyleBoxFlat.new();sb.bg_color=Color(.025,.045,.07,.94);sb.set_corner_radius_all(20);panel.add_theme_stylebox_override("panel",sb);menu.add_child(panel)
-	label(panel,"GT77",58).position=Vector2(28,17)
-	label(panel,"DRIVE LAB  /  ANDROID",17,Color("59e8c9")).position=Vector2(31,86)
-	label(panel,"Una máquina. Tu forma de conducir.",16,Color("afc1cf")).position=Vector2(30,116)
-	label(panel,"ESTILO DE MANEJO",12,Color("91a7b9")).position=Vector2(30,160)
-	style_select=option(panel,["Asistido · ABS + TCS + estabilidad","Sport · ABS + TCS","Simulación · sin ayudas"],config.get_value("drive","style",1));style_select.position=Vector2(28,181);style_select.size=Vector2(360,44)
-	label(panel,"CONTROLES",12,Color("91a7b9")).position=Vector2(30,240)
-	control_select=option(panel,["Botones en pantalla","Giroscopio / inclinación"],config.get_value("drive","controls",0));control_select.position=Vector2(28,261);control_select.size=Vector2(360,44)
-	label(panel,"PINTURA",12,Color("91a7b9")).position=Vector2(30,320)
-	skin_select=option(panel,["77 · Rojo y grafito","77 · Arctic cyan","77 · Pearl white"],config.get_value("drive","skin",0));skin_select.position=Vector2(28,341);skin_select.size=Vector2(360,44);skin_select.item_selected.connect(func(index):car.set_skin(index))
-	label(panel,"GIRO MÁXIMO DEL TELÉFONO",12,Color("91a7b9")).position=Vector2(30,403)
-	sensitivity=HSlider.new();sensitivity.min_value=20;sensitivity.max_value=55;sensitivity.step=1;sensitivity.value=config.get_value("drive","angle",32.0);sensitivity.position=Vector2(30,429);sensitivity.size=Vector2(225,25);panel.add_child(sensitivity)
-	var angle_label=label(panel,"32°",17,Color("59e8c9"));angle_label.position=Vector2(279,423);angle_label.text="%d°"%sensitivity.value;sensitivity.value_changed.connect(func(value):angle_label.text="%d°"%value)
-	inversion=CheckButton.new();inversion.text="Invertir giro";inversion.theme=base_theme;inversion.position=Vector2(25,463);inversion.button_pressed=config.get_value("drive","invert",false);panel.add_child(inversion)
-	sound=CheckButton.new();sound.text="Audio";sound.theme=base_theme;sound.position=Vector2(225,463);sound.button_pressed=config.get_value("drive","sound",true);panel.add_child(sound)
-	shadows=CheckButton.new();shadows.text="Sombras · calidad visual";shadows.theme=base_theme;shadows.position=Vector2(25,505);shadows.button_pressed=config.get_value("drive","shadows",true);panel.add_child(shadows)
-	var start=button(panel,"GUARDAR Y ELEGIR PISTA   →",func():_apply_settings();menu.hide();selector.show());start.position=Vector2(28,564);start.size=Vector2(360,58)
-	var active=StyleBoxFlat.new();active.bg_color=Color("dd3847");active.set_corner_radius_all(10);start.add_theme_stylebox_override("normal",active)
-	label(panel,"VERSIÓN 0.2  ·  DOS CIRCUITOS",11,Color("8ba0b1")).position=Vector2(31,640)
-	var note=label(menu,"SUSPENSIÓN POR RUEDA  /  AERODINÁMICA\nCAPÓ · ONBOARD · TERCERA PERSONA",14,Color(.92,.97,1,.9));note.position=Vector2(480,643);note.name="Note"
-
-func _build_action_ui():
-	action_ui=Control.new();action_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);action_ui.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(action_ui);action_ui.visible=false
-	camera_button=button(action_ui,"CÁMARA",_cycle_camera)
-	var pause=button(action_ui,"Ⅱ",_pause);pause.name="Pause"
-	var reset=button(action_ui,"RECOLOCAR",_reset);reset.name="Reset"
-	reverse_button=button(action_ui,"R / D",_reverse)
-	calibrate_button=button(action_ui,"CENTRAR GIRO",func():controls.calibrate();notify("Giro centrado. Mantén el teléfono frente a ti."))
-
+	o.select(clampi(int(config.get_value(section,key,default)),0,items.size()-1));parent.add_child(o);return o
+func toggle(parent:Node,caption:String,key:String,default:bool)->CheckButton:
+	var b=CheckButton.new();b.text=caption;b.theme=base_theme;b.button_pressed=config.get_value("drive",key,default);b.custom_minimum_size.y=40;parent.add_child(b);return b
+func overlay()->Control:
+	var root=Control.new();root.theme=base_theme;root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);ui.add_child(root)
+	var bg=ColorRect.new();bg.color=Color(.025,.045,.075,.96);bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);root.add_child(bg)
+	var margin=MarginContainer.new();margin.name="Safe";root.add_child(margin)
+	for side in ["left","right","top","bottom"]:margin.add_theme_constant_override("margin_"+side,24)
+	var scroll=ScrollContainer.new();scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED;margin.add_child(scroll)
+	var content=VBoxContainer.new();content.name="Content";content.size_flags_horizontal=Control.SIZE_EXPAND_FILL;content.add_theme_constant_override("separation",10);scroll.add_child(content)
+	root.hide();return root
+func content(root:Control)->VBoxContainer:return root.get_node("Safe").get_child(0).get_child(0)
+func _build_settings():
+	menu=overlay();var box=content(menu);label_(box,"AJUSTES DE CONDUCCIÓN",30)
+	var columns=HBoxContainer.new();columns.add_theme_constant_override("separation",24);box.add_child(columns)
+	var a=VBoxContainer.new();a.size_flags_horizontal=Control.SIZE_EXPAND_FILL;columns.add_child(a)
+	var b=VBoxContainer.new();b.size_flags_horizontal=Control.SIZE_EXPAND_FILL;columns.add_child(b)
+	style_select=choose(a,"MANEJO",["Arcade deportivo · estabilidad + ABS + TCS","Sport · ABS + TCS","Simulación · sin ayudas"],"drive","style",0)
+	control_select=choose(a,"CONTROLES",["Botones","Inclinación","Volante virtual"],"drive","controls",0)
+	label_(a,"Sensibilidad de inclinación / volante",14);sensitivity=HSlider.new();sensitivity.min_value=20;sensitivity.max_value=55;sensitivity.value=config.get_value("drive","angle",32);sensitivity.custom_minimum_size.y=36;a.add_child(sensitivity)
+	inversion=toggle(a,"Invertir inclinación","invert",false);lefty=toggle(a,"Modo zurdo · invertir posición de controles","lefty",false)
+	ghost_check=toggle(a,"Mostrar fantasma personal","ghost",true)
+	quality_select=choose(b,"CALIDAD",["Baja · 70 % resolución 3D","Media · 85 % resolución 3D","Alta · resolución nativa"],"drive","quality",1)
+	fps_select=choose(b,"LÍMITE DE CUADROS",["30 FPS","60 FPS"],"drive","fps",1)
+	shadows=toggle(b,"Sombras dinámicas","shadows",true);sound=toggle(b,"Audio de motor y neumáticos","sound",true);vibration=toggle(b,"Vibración","vibration",true)
+	label_(box,"Teclado: WASD / flechas · Espacio: freno de mano · C: cámara · R: recolocar · Esc: pausa.\nControl Bluetooth: stick izquierdo, RT/LT, A: freno de mano, Start: pausa.",15).autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	button(box,"GUARDAR Y VOLVER",func():_apply_settings();menu.hide();selector.show())
+func _build_actions():
+	action_ui=Control.new();action_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);action_ui.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(action_ui);action_ui.hide()
+	var row=HBoxContainer.new();row.name="Top";action_ui.add_child(row)
+	button(row,"CÁMARA",_cycle_camera);button(row,"RECOLOCAR",_reset);button(row,"PAUSA",_pause)
+	var reverse=button(action_ui,"R / D",_reverse);reverse.name="Reverse"
 func _build_pause():
-	pause_menu=Control.new();pause_menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);ui.add_child(pause_menu);pause_menu.visible=false
-	var dim=ColorRect.new();dim.color=Color(.015,.025,.04,.87);dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);pause_menu.add_child(dim)
-	var panel=VBoxContainer.new();panel.name="Buttons";panel.position=Vector2(440,190);panel.size=Vector2(400,340);panel.add_theme_constant_override("separation",18);pause_menu.add_child(panel)
-	var title=label(panel,"PAUSA EN BOXES",30);title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	button(panel,"CONTINUAR",_resume)
-	button(panel,"CENTRAR GIRO",func():controls.calibrate();_resume();notify("Sensor calibrado."))
-	button(panel,"RECOLOCAR COCHE",func():_resume();_reset())
-	button(panel,"MENÚ Y AJUSTES",_back_to_menu)
-
+	pause_menu=overlay();var box=content(pause_menu);label_(box,"PAUSA EN BOXES",30)
+	button(box,"CONTINUAR",_resume);button(box,"CENTRAR INCLINACIÓN",func():controls.calibrate();_resume())
+	button(box,"RECOLOCAR COCHE",func():_resume();_reset())
+	button(box,"MODO FOTO · OCULTAR INTERFAZ",_open_photo)
+	button(box,"VOLVER AL GARAJE",_back_to_menu)
+func _build_photo():
+	photo_ui=Control.new();photo_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);photo_ui.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(photo_ui)
+	var row=HBoxContainer.new();row.name="Buttons";row.position=Vector2(24,24);photo_ui.add_child(row)
+	button(row,"VOLVER",_resume);button(row,"GUARDAR FOTO",_save_photo)
+	var help=label_(row,"  Arrastra para girar · C para guardar",16);help.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	photo_ui.hide()
+func _open_photo():
+	photo_mode=true;photo_angle=0;get_tree().paused=true;pause_menu.hide();action_ui.hide();hud.hide();controls.hide();photo_ui.show()
+func _build_results():
+	results=overlay();var box=content(results);label_(box,"RESULTADOS",34)
+	result_label=label_(box,"",22);result_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	continue_button=button(box,"VOLVER AL GARAJE",_continue_event)
+	button(box,"GARAJE",_back_to_menu)
 func _apply_settings():
-	car.driving_mode=style_select.selected;controls.mode=control_select.selected;controls.full_angle=sensitivity.value;controls.invert_tilt=inversion.button_pressed
-	car.set_skin(skin_select.selected);track.sky_sun.shadow_enabled=shadows.button_pressed
+	car.driving_mode=style_select.selected;controls.mode=control_select.selected;controls.full_angle=sensitivity.value;controls.invert_tilt=inversion.button_pressed;controls.left_handed=lefty.button_pressed
+	Engine.max_fps=30 if fps_select.selected==0 else 60
+	get_viewport().scaling_3d_scale=[.7,.85,1.0][quality_select.selected]
+	if track:track.sky_sun.shadow_enabled=shadows.button_pressed and quality_select.selected>0
 	if audio_player:audio_player.enabled=sound.button_pressed
-	config.set_value("drive","style",style_select.selected);config.set_value("drive","controls",control_select.selected);config.set_value("drive","skin",skin_select.selected);config.set_value("drive","angle",sensitivity.value);config.set_value("drive","invert",inversion.button_pressed);config.set_value("drive","sound",sound.button_pressed);config.set_value("drive","shadows",shadows.button_pressed);config.save("user://settings.cfg")
-
+	if ghost:ghost.enabled=ghost_check.button_pressed
+	var values={"style":style_select.selected,"controls":control_select.selected,"angle":sensitivity.value,"invert":inversion.button_pressed,"lefty":lefty.button_pressed,"quality":quality_select.selected,"fps":fps_select.selected,"shadows":shadows.button_pressed,"sound":sound.button_pressed,"vibration":vibration.button_pressed,"ghost":ghost_check.button_pressed}
+	for key in values:config.set_value("drive",key,values[key])
+	config.save("user://settings.cfg")
+func _preview_vehicle(id:String):
+	if not car or not selector:return
+	car.configure(Vehicles.get_vehicle(id),selector.paint_colors[selector.paint_choice.selected])
+	if id=="gt77":car.set_skin(selector.paint_choice.selected%3)
+	profile.data.settings.vehicle=id;profile.save()
 func _select_track(id:String):
-	selected_track_id=id;best_lap=config.get_value("records",id,0.0)
-	config.set_value("session","selected_track",id);config.save("user://settings.cfg")
-
+	selected_track_id=id;config.set_value("session","selected_track",id);config.save("user://settings.cfg")
 func _start():
 	if loading_track:return
-	loading_track=true;selector.set_loading(true,"PREPARANDO "+Catalog.get_entry(selected_track_id).name.to_upper()+"…")
-	car.freeze=true;controls.active=false
+	loading_track=true;selector.set_loading(true);car.freeze=true;controls.active=false;get_tree().paused=false
 	await get_tree().process_frame
-	if loaded_track_id!=selected_track_id:
-		var resource:PackedScene=null
-		if selected_track_id=="sierra":
-			var error=ResourceLoader.load_threaded_request(Catalog.SIERRA_SCENE)
-			if error!=OK:
-				selector.set_loading(false);loading_track=false;notify("No se pudo cargar Sierra.");return
-			var state=ResourceLoader.load_threaded_get_status(Catalog.SIERRA_SCENE)
-			while state==ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-				await get_tree().process_frame
-				state=ResourceLoader.load_threaded_get_status(Catalog.SIERRA_SCENE)
-			if state!=ResourceLoader.THREAD_LOAD_LOADED:
-				selector.set_loading(false);loading_track=false;notify("No se pudo cargar Sierra.");return
-			resource=ResourceLoader.load_threaded_get(Catalog.SIERRA_SCENE)
-		remove_child(track);track.queue_free()
-		await get_tree().process_frame
-		if selected_track_id=="sierra":track=SierraScript.new();track.packed=resource
-		else:track=TrackScript.new()
-		add_child(track);loaded_track_id=selected_track_id;hud.track=track
-	_apply_settings();playing=true;menu.hide();selector.hide();selector.set_loading(false);action_ui.show();controls.active=true;controls.clear();controls.calibrate();get_tree().paused=false
-	car.freeze=true
-	car.global_transform=track.start_transform
-	car.visible=true
-	car.physics_enabled=true
-	car.request_reset(track.start_transform)
-	car.freeze=false
-	camera.make_current()
-	lap_time=0;laps=0;best_lap=config.get_value("records",selected_track_id,0.0)
+	for rival in rivals:rival.queue_free()
+	rivals.clear()
+	if is_instance_valid(rain):rain.queue_free();rain=null
+	if selector.session_mode.selected==3:selected_track_id=championship_tracks[championship_round]
+	var next_track
+	if selector.session_mode.selected==8:next_track=preload("res://scripts/drag_track.gd").new()
+	elif selected_track_id=="sierra":
+		if not ResourceLoader.has_cached(Catalog.SIERRA_SCENE):ResourceLoader.load_threaded_request(Catalog.SIERRA_SCENE)
+		while ResourceLoader.load_threaded_get_status(Catalog.SIERRA_SCENE)==ResourceLoader.THREAD_LOAD_IN_PROGRESS:await get_tree().process_frame
+		var packed=load(Catalog.SIERRA_SCENE) if ResourceLoader.has_cached(Catalog.SIERRA_SCENE) else ResourceLoader.load_threaded_get(Catalog.SIERRA_SCENE)
+		if packed==null:selector.set_loading(false,"No se pudo cargar Sierra");loading_track=false;return
+		next_track=SierraScript.new();next_track.packed=packed
+	elif selected_track_id=="lab":next_track=TrackScript.new()
+	else:next_track=ExpansionScript.new();next_track.definition=Catalog.get_entry(selected_track_id)
+	remove_child(track);track.queue_free();track=next_track;add_child(track);loaded_track_id=selected_track_id;hud.track=track
+	if selector.reverse_choice.button_pressed and selector.session_mode.selected!=8:
+		var reverse_points=PackedVector3Array([track.points[0]])
+		for i in range(track.points.size()-1,0,-1):reverse_points.append(track.points[i])
+		track.points=reverse_points;track._index_path()
+		track.start_transform=Transform3D(Basis.looking_at(track.tangents[-2],Vector3.UP),track.points[-2]+Vector3.UP*.8)
+	_preview_vehicle(selector.vehicle_id);_apply_settings();_apply_weather()
+	car.engine_multiplier=1.0+profile.level(selector.vehicle_id,"motor")*.05
+	car.grip_multiplier=1.0+profile.level(selector.vehicle_id,"grip")*.03
+	car.brake_multiplier=1.0+profile.level(selector.vehicle_id,"brakes")*.05
+	record_key="v03/%s/%s/%d/%d/%s/%d%d%d"%[track.track_id,selector.vehicle_id,style_select.selected,selector.weather_choice.selected,str(selector.reverse_choice.button_pressed),profile.level(selector.vehicle_id,"motor"),profile.level(selector.vehicle_id,"grip"),profile.level(selector.vehicle_id,"brakes")]
+	best_lap=float(profile.data.records.get(record_key,0));lap_time=0;laps=0;daily_fast=0;results_paid=false
+	rules.begin(selector.session_mode.selected,track.length_m,track.progress_at(track.start_transform.origin));game_mode=Rules.MODES[rules.mode]
 	lap_tracker.reset(track.length_m,track.progress_at(track.start_transform.origin))
-	camera.h_offset=0;camera.position=car.global_transform*Vector3(0,2.7,6.3)
-	camera.look_at(car.global_position-car.global_basis.z*3.0,Vector3.UP)
-	loading_track=false
-	notify(track.track_title+" · Cruza la meta para iniciar el tiempo.")
-
+	ghost.configure(record_key,Vehicles.get_vehicle(selector.vehicle_id));ghost.enabled=ghost_check.button_pressed
+	if rules.mode in [2,3,7]:
+		for i in range(5):
+			var rival=preload("res://scripts/gameplay/opponent.gd").new();add_child(rival);rival.setup(track,Vehicles.get_vehicle(selector.vehicle_id),i,[.65,.85,1.0][selector.difficulty_choice.selected]);rivals.append(rival)
+	car.global_transform=track.start_transform;car.request_reset(track.start_transform);car.physics_enabled=true;car.visible=true;car.freeze=false
+	playing=true;menu.hide();selector.hide();selector.set_loading(false);results.hide();pause_menu.hide();action_ui.show();hud.show();controls.show();controls.active=true;controls.clear();controls.calibrate()
+	camera.position=car.global_transform*Vector3(0,2.7,6.3);camera.look_at(car.position-car.basis.z*3,Vector3.UP);camera.make_current()
+	loading_track=false;notify("Cruza la meta para iniciar tu vuelta" if rules.mode in [0,1] else game_mode)
+func _apply_weather():
+	var weather=selector.weather_choice.selected
+	car.surface_multiplier=.73 if weather==1 else 1.0
+	var env_node=track.get_child(0)
+	if env_node is WorldEnvironment:
+		var env:Environment=env_node.environment
+		var sky_mat=env.sky.sky_material
+		if weather==2:
+			track.sky_sun.rotation_degrees.x=-12;track.sky_sun.light_color=Color("ffb37c");sky_mat.sky_top_color=Color("526385");sky_mat.sky_horizon_color=Color("eea276")
+		elif weather==3:
+			track.sky_sun.light_energy=.22;env.ambient_light_energy=.7;sky_mat.sky_top_color=Color("080e24");sky_mat.sky_horizon_color=Color("34415e")
+		elif weather==1:
+			track.sky_sun.light_energy=.55;sky_mat.sky_top_color=Color("677b91");sky_mat.sky_horizon_color=Color("9eacb5")
+	if weather==1 and quality_select.selected>0:
+		rain=CPUParticles3D.new();rain.amount=90;rain.lifetime=1.0;rain.emission_shape=CPUParticles3D.EMISSION_SHAPE_BOX;rain.emission_box_extents=Vector3(12,1,12);rain.direction=Vector3(0,-1,0);rain.initial_velocity_min=18;rain.initial_velocity_max=24
+		var mesh=BoxMesh.new();mesh.size=Vector3(.025,.7,.025);rain.mesh=mesh;rain.color=Color(.65,.8,.95,.45);add_child(rain)
 func _pause():
-	if not playing:return
+	if not playing or rules.completed:return
 	controls.clear();get_tree().paused=true;pause_menu.show()
-
 func _resume():
-	get_tree().paused=false;pause_menu.hide();controls.clear();controls.calibrate()
-
+	photo_mode=false;photo_ui.hide();hud.show();controls.show();action_ui.visible=playing;get_tree().paused=false;pause_menu.hide();controls.clear();controls.calibrate()
+	if not playing:selector.show()
 func _back_to_menu():
-	get_tree().paused=false;pause_menu.hide();playing=false;menu.hide();selector.show();action_ui.hide();controls.active=false;controls.clear();car.freeze=true;car.linear_velocity=Vector3.ZERO;car.angular_velocity=Vector3.ZERO;car.transform=track.start_transform
-	for wheel in car.wheels:wheel.length=car.REST
-
+	photo_mode=false;photo_ui.hide();get_tree().paused=false;pause_menu.hide();results.hide();playing=false;menu.hide();selector.show();selector.refresh_profile();action_ui.hide();controls.active=false;controls.show();controls.clear();hud.show();car.freeze=true;car.linear_velocity=Vector3.ZERO;car.angular_velocity=Vector3.ZERO;ghost.hide()
+	for rival in rivals:rival.queue_free()
+	rivals.clear()
 func _reset():
-	var target=track.reset_near(car.position)
-	car.request_reset(target);controls.clear();lap_time=0
-	lap_tracker.reset(track.length_m,track.progress_at(target.origin))
-	notify("Coche recolocado. Se reinició el tiempo de vuelta.")
-
+	if not playing:return
+	var target=track.reset_near(car.position);car.request_reset(target);controls.clear();lap_time=0
+	lap_tracker.reset(track.length_m,track.progress_at(target.origin));rules.invalidate();rules.previous=track.progress_at(target.origin);ghost.new_lap()
+	if rules.mode in [5,6,8]:rules.completed=true;rules.message="Intento invalidado por recolocación";_finish_event()
+	notify("Recolocado · vuelta invalidada")
 func _reverse():
-	if car.toggle_reverse():notify("REVERSA · usa GAS para retroceder." if car.reverse else "MARCHA ADELANTE")
-	else:notify("Detén el coche para cambiar entre R y D.")
-
-func _cycle_camera():
-	camera_mode=(camera_mode+1)%3;notify(["CÁMARA CAPÓ","CÁMARA ONBOARD","CÁMARA TERCERA PERSONA"][camera_mode])
-
-func notify(text_:String):message=text_;message_time=4.5
-
+	if car.toggle_reverse():notify("REVERSA" if car.reverse else "MARCHA ADELANTE")
+	else:notify("Detén el coche para cambiar R / D")
+func _cycle_camera():camera_mode=(camera_mode+1)%3
+func notify(value:String):message=value;message_time=4.0
 func _unhandled_input(event):
+	if photo_mode:
+		if event is InputEventScreenDrag:photo_angle-=event.relative.x*.006;photo_height=clampf(photo_height-event.relative.y*.01,.5,12)
+		if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):photo_angle-=event.relative.x*.006
+	if event is InputEventJoypadButton and event.pressed and event.button_index==JOY_BUTTON_START:
+		if get_tree().paused:_resume()
+		else:_pause()
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode==KEY_ESCAPE:
-			if not playing and menu.visible:menu.hide();selector.show()
-			elif get_tree().paused:_resume()
+			if get_tree().paused:_resume()
+			elif menu.visible:menu.hide();selector.show()
 			else:_pause()
-		elif event.keycode==KEY_C and playing:_cycle_camera()
+		elif event.keycode==KEY_C and playing:
+			if photo_mode:_save_photo()
+			else:_cycle_camera()
 		elif event.keycode==KEY_R and playing:_reset()
 		elif event.keycode==KEY_V and playing:_reverse()
-
+func _save_photo():
+	photo_ui.hide()
+	await RenderingServer.frame_post_draw
+	var file="user://RACE_photo_%d.png"%Time.get_unix_time_from_system()
+	var error=get_viewport().get_texture().get_image().save_png(file)
+	_resume();notify("Foto guardada en datos de la app" if error==OK else "No se pudo guardar la foto")
 func _notification(what):
 	if what==NOTIFICATION_APPLICATION_PAUSED or what==NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if playing:_pause()
@@ -233,94 +287,107 @@ func _notification(what):
 		elif playing:_pause()
 		elif menu.visible:menu.hide();selector.show()
 		else:get_tree().quit()
-
 func _physics_process(dt):
-	if not playing or get_tree().paused:return
-	car.throttle_input=controls.throttle;car.brake_input=controls.brake;car.steering_input=controls.steering;car.handbrake_input=controls.handbrake
-	if lap_tracker.armed:lap_time+=dt
-	var finished=lap_tracker.update(track.progress_at(car.position))
+	if not playing or get_tree().paused or rules.completed:return
+	var progress=track.progress_at(car.position)
+	var road_distance=track.road_distance(car.position)
+	var on_road=road_distance<11.0 and car.contacts>=2
+	var local_velocity=car.global_basis.inverse()*car.linear_velocity
+	var angle=atan2(local_velocity.x,maxf(absf(local_velocity.z),1))
+	rules.tick(dt,progress,on_road,car.speed_kmh,angle,controls.throttle,controls.brake)
+	var ready=rules.countdown<=0
+	car.throttle_input=controls.throttle if ready else 0.0;car.brake_input=controls.brake if ready else 1.0;car.steering_input=controls.steering if ready else 0.0;car.handbrake_input=controls.handbrake if ready else 1.0
+	if not ready:return
+	for rival in rivals:rival.tick(dt,car.position)
+	rules.position=1
+	for rival in rivals:
+		if rival.distance>rules.travel:rules.position+=1
+	if rules.mode==7 and rules.elapsed>=rules.elimination_at:
+		rules.elimination_at+=30
+		if rules.position==rivals.size()+1:rules.completed=true;rules.message="Has sido eliminado"
+		elif not rivals.is_empty():
+			var last=rivals[0]
+			for rival in rivals:
+				if rival.distance<last.distance:last=rival
+			rivals.erase(last);last.queue_free();notify("Rival eliminado")
+			if rivals.is_empty():rules.completed=true;rules.message="Victoria en eliminación"
+	if lap_tracker.armed:lap_time+=dt;ghost.tick(dt,car)
+	var checkpoint_before=lap_tracker.next_checkpoint
+	var finished=lap_tracker.update(progress)
+	if lap_tracker.next_checkpoint>checkpoint_before:
+		rules.checkpoint_passed(checkpoint_before);last_sector=checkpoint_before
+		var sector_time=float(rules.sectors[-1]);var key=record_key+"/sector/"+str(checkpoint_before)
+		sector_delta=sector_time-float(profile.data.records.get(key,sector_time))
+		if rules.valid:profile.record(key,sector_time)
 	if finished:
-		laps+=1
-		if best_lap<=0 or lap_time<best_lap:
-			best_lap=lap_time;config.set_value("records",selected_track_id,best_lap);config.save("user://settings.cfg");notify("NUEVA MEJOR VUELTA  "+time_string(lap_time))
-		else:notify("VUELTA COMPLETADA  "+time_string(lap_time))
-	if lap_tracker.crossed_start:lap_time=0
+		var valid=rules.finish_lap()
+		if valid and lap_time>3:
+			laps+=1
+			if profile.record(record_key,lap_time):best_lap=lap_time;ghost.save_best();notify("RÉCORD PERSONAL  "+time_string(lap_time))
+			else:notify("VUELTA  "+time_string(lap_time))
+			profile.reward(100,30);_daily("vuelta",1,1,200)
+		else:notify("VUELTA INVALIDADA")
+	if lap_tracker.crossed_start:
+		lap_time=0;ghost.new_lap();rules.valid=true;rules.checkpoint=1;rules.last_sector_time=rules.elapsed
+	if car.speed_kmh>=150:daily_fast+=dt;_daily("velocidad",daily_fast,10,250)
+	_daily("drift",rules.drift_distance,500,300)
 	skid_timer+=dt
-	if skid_timer>.07:
+	if skid_timer>.1:
 		skid_timer=0
 		for wheel in car.wheels:
-			if wheel.ground and car.speed_kmh>15 and (absf(wheel.slip)>.30 or absf(wheel.lat_slip)>.13):track.add_skid(wheel.point,-car.global_basis.z,wheel.normal)
+			if wheel.ground and car.speed_kmh>15 and (absf(wheel.slip)>.3 or absf(wheel.lat_slip)>.13):track.add_skid(wheel.point,-car.global_basis.z,wheel.normal)
 	if car.position.y<-12:_reset()
-	# Vibración breve vinculada a recorrido de suspensión, sólo en dispositivos compatibles.
-	vibration_cooldown=maxf(0.0,vibration_cooldown-dt)
-	if vibration_cooldown<=0.0 and car.speed_kmh>16.0:
-		var impact=0.0
-		for wheel in car.wheels:
-			if wheel.ground:impact=maxf(impact,absf(wheel.compression))
-		if impact>0.11:
-			Input.vibrate_handheld(22,clampf(impact*1.6,0.12,0.55))
-			vibration_cooldown=0.24
-
+	vibration_cooldown=maxf(0,vibration_cooldown-dt)
+	if vibration.button_pressed and vibration_cooldown<=0 and car.speed_kmh>20 and car.get_contact_count()>0:Input.vibrate_handheld(30,.3);vibration_cooldown=.5
+	if rules.completed:_finish_event()
+func _daily(id:String,value:float,target:float,reward:int):
+	if value<target:return
+	var date=Time.get_date_string_from_system();var key=date+"/"+id
+	if profile.data.daily.has(key):return
+	profile.data.daily[key]=true;profile.reward(reward,50);notify("DESAFÍO DIARIO  +%d CR"%reward)
+func _finish_event():
+	if results_paid:return
+	results_paid=true;controls.clear();controls.active=false;car.freeze=true;action_ui.hide();ghost.hide();results.show()
+	var success=rules.valid and not ("invalidado" in rules.message or "agotado" in rules.message or "eliminado" in rules.message)
+	var reward=maxi(100,700-rules.position*80) if success else 0
+	if success:profile.reward(reward,100)
+	var text="%s\n%s\nTiempo: %s\nPosición: %d / %d\nPuntos drift: %d\nRecompensa: %d CR"%[game_mode,rules.message,time_string(rules.elapsed),rules.position,rivals.size()+1,int(rules.score),reward]
+	if rules.mode==3:
+		var ranking=[{"id":0,"distance":rules.travel}]
+		for i in range(rivals.size()):ranking.append({"id":i+1,"distance":rivals[i].distance})
+		ranking.sort_custom(func(a,b):return a.distance>b.distance)
+		for i in range(ranking.size()):championship_scores[ranking[i].id]+=[10,8,6,4,2,1][i]
+		text+="\n\nCAMPEONATO · RONDA %d / 3\n"%(championship_round+1)
+		for i in range(championship_scores.size()):text+=("TÚ" if i==0 else ["VEGA","CRUZ","SOL","NOVA","RÍOS"][i-1])+": %d puntos\n"%championship_scores[i]
+	result_label.text=text;continue_button.text="SIGUIENTE RONDA" if rules.mode==3 and championship_round<2 else "VOLVER AL GARAJE"
+func _continue_event():
+	if rules.mode==3 and championship_round<2:championship_round+=1;results.hide();_start()
+	else:_back_to_menu()
 func _process(dt):
 	if not is_instance_valid(car):return
-	var screen=get_viewport().get_visible_rect().size
-	if screen!=cached_size:
-		cached_size=screen;_layout(screen)
 	message_time=maxf(0,message_time-dt)
-	var basis=car.global_basis
+	for panel in [menu,pause_menu,results]:
+		if panel and panel.visible:
+			var safe=Safe.rect(panel);panel.get_node("Safe").position=safe.position;panel.get_node("Safe").size=safe.size
+	if action_ui:
+		var safe=Safe.rect(action_ui)
+		photo_ui.get_node("Buttons").position=safe.position+Vector2(24,24)
+		var row=action_ui.get_node("Top");row.position=Vector2(safe.end.x-row.size.x-20,safe.position.y+18)
+		action_ui.get_node("Reverse").position=Vector2(safe.position.x+24,safe.end.y-265)
+	if is_instance_valid(rain):rain.position=car.position+Vector3.UP*12
+	if photo_mode:
+		camera.position=car.position+Vector3(sin(photo_angle)*7,photo_height,cos(photo_angle)*7);camera.look_at(car.position,Vector3.UP);return
 	if not playing:
-		menu_time+=dt;var a=-.80+sin(menu_time*.16)*.20
-		camera.position=car.position+Vector3(sin(a)*6.6,2.0,-cos(a)*6.6);camera.h_offset=-1.55;camera.fov=52
-		camera.look_at(car.position+Vector3(0,.1,0),Vector3.UP)
+		menu_time+=dt;var angle=menu_time*.15
+		camera.position=car.position+Vector3(sin(angle)*6.6,2,-cos(angle)*6.6);camera.fov=52;camera.look_at(car.position,Vector3.UP)
 	elif not get_tree().paused:
-		camera.h_offset=0
+		var basis=car.global_basis
 		if camera_mode==2:
-			var target=car.position+basis*Vector3(0,2.55,6.6)
-			var origin=car.position+Vector3.UP*.7
-			var ray=PhysicsRayQueryParameters3D.create(origin,target,1,[car.get_rid()]);var hit=get_world_3d().direct_space_state.intersect_ray(ray)
+			var target=car.position+basis*Vector3(0,2.55,6.6);var origin=car.position+Vector3.UP*.7
+			var hit=get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(origin,target,1,[car.get_rid()]))
 			if not hit.is_empty():target=hit.position+(origin-hit.position).normalized()*.4
-			camera.position=camera.position.lerp(target,1-exp(-dt*8));camera.fov=lerpf(camera.fov,66+minf(car.speed_kmh/30,7),minf(dt*3,1))
-			camera.look_at(car.position+basis*Vector3(0,.25,-1.5),Vector3.UP)
+			camera.position=camera.position.lerp(target,1-exp(-dt*8));camera.fov=lerpf(camera.fov,66+minf(car.speed_kmh/22,12),minf(dt*3,1));camera.look_at(car.position+basis*Vector3(0,.25,-1.5),Vector3.UP)
 		else:
-			var offset=Vector3(0,.33,-1.36) if camera_mode==0 else Vector3(-.32,.53,-.22)
-			camera.position=car.global_transform*offset;camera.fov=76 if camera_mode==0 else 80
-			camera.look_at(camera.position-basis.z*20+basis.y*.02,basis.y)
-	calibrate_button.visible=playing and controls.mode==1
-	reverse_button.text="R" if car.reverse else "D"
-	camera_button.text=["CAPÓ","ONBOARD","3ª PERSONA"][camera_mode]
-	if screenshot_mode:
-		snapshot_timer+=dt
-		if snapshot_timer>4:
-			screenshot_mode=false;await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png("user://menu.png")
-			_start()
-			await get_tree().create_timer(3).timeout
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png("user://game.png")
-			camera_mode=0
-			await get_tree().create_timer(1).timeout
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png("user://hood.png")
-			camera_mode=1
-			await get_tree().create_timer(1).timeout
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png("user://onboard.png")
-			get_tree().quit()
-
-func _layout(size_:Vector2):
-	camera_button.position=Vector2(size_.x-228,20);camera_button.size=Vector2(132,47)
-	action_ui.get_node("Pause").position=Vector2(size_.x-81,20);action_ui.get_node("Pause").size=Vector2(58,47)
-	action_ui.get_node("Reset").position=Vector2(size_.x-168,87);action_ui.get_node("Reset").size=Vector2(145,39)
-	reverse_button.position=Vector2(28,size_.y-223);reverse_button.size=Vector2(65,48)
-	calibrate_button.position=Vector2(28,size_.y-285);calibrate_button.size=Vector2(190,43)
-	pause_menu.get_node("Buttons").position=Vector2(size_.x*.5-200,size_.y*.5-160)
-	menu.get_node("Note").position=Vector2(maxf(24,size_.x-430),size_.y-77)
-	var menu_panel=menu.get_child(0)
-	var factor=minf(1.0,minf((size_.y-20)/700.0,(size_.x-20)/840.0))
-	menu_panel.scale=Vector2(factor,factor)
-	menu_panel.position=Vector2(12,12)
-	pause_menu.get_node("Buttons").scale=Vector2(minf(1.0,size_.x/440.0),minf(1.0,size_.y/390.0))
-
+			camera.position=car.global_transform*(Vector3(0,.33,-1.36) if camera_mode==0 else Vector3(-.32,.53,-.22));camera.fov=76 if camera_mode==0 else 80;camera.look_at(camera.position-basis.z*20+basis.y*.02,basis.y)
 func time_string(seconds:float)->String:
-	var ms=roundi(seconds*1000)
-	return "%02d:%02d.%03d"%[ms/60000,(ms/1000)%60,ms%1000]
+	var ms=roundi(seconds*1000);return "%02d:%02d.%03d"%[ms/60000,(ms/1000)%60,ms%1000]

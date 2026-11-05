@@ -15,7 +15,7 @@ func _ready():
 func _process(_dt):
 	if not playback or not is_instance_valid(car):return
 	var count=playback.get_frames_available()
-	var frequency=car.rpm/60.0*2.0
+	var frequency=car.rpm/60.0*2.0*float(car.vehicle_data.get("pitch",1.0))
 	var gain=(.20+.65*car.throttle) if enabled and not car.freeze and not get_tree().paused else 0.0
 	for i in range(count):
 		phase=fmod(phase+TAU*frequency/22050.0,TAU);phase2=fmod(phase2+TAU*frequency*.5/22050.0,TAU)

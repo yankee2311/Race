@@ -71,7 +71,7 @@ func run():
 	await frames(30)
 	print("MULTITOUCH ",controls.pointers," throttle ",controls.throttle," steer ",controls.steering)
 	result.multitouch_pointers=controls.pointers.duplicate();result.multitouch_throttle=controls.throttle;result.multitouch_steering=controls.steering
-	check(controls.throttle>.9 and controls.steering<-.2,"multitouch supports gas and steering together")
+	check(controls.throttle>.45 and controls.throttle<.55 and controls.steering<-.2,"multitouch supports proportional half throttle and steering together")
 	gas.pressed=false;left.pressed=false;root.push_input(gas,true);root.push_input(left,true)
 	await frames(30)
 	check(controls.throttle==0 and absf(controls.steering)<.01,"touch release clears driving commands")

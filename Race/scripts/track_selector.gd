@@ -1,121 +1,110 @@
 extends Control
 const Catalog=preload("res://scripts/track_catalog.gd")
+const Vehicles=preload("res://scripts/vehicles/vehicle_catalog.gd")
+const Rules=preload("res://scripts/gameplay/race_rules.gd")
 const Map=preload("res://scripts/track_map.gd")
+const Safe=preload("res://scripts/ui/safe_area.gd")
 signal selected(id:String)
+signal vehicle_selected(id:String)
 signal start_requested
 signal settings_requested
+signal upgrade_requested(component:String)
+signal preview_requested
 var selected_id="sierra"
+var vehicle_id="gt77"
 var session_mode:OptionButton
-var cards=[]
-var hero:TextureRect
-var title:Label
-var location_label:Label
-var tag_label:Label
-var description:Label
-var stats=[]
-var map:Control
-var map_panel:Panel
-var details:Panel
+var track_choice:OptionButton
+var vehicle_choice:OptionButton
+var weather_choice:OptionButton
+var difficulty_choice:OptionButton
+var paint_choice:OptionButton
+var reverse_choice:CheckButton
 var start_button:Button
-var settings_button:Button
-var footer:Label
-var header:Label
-var count_label:Label
-var hero_panel:Panel
-var loading:Panel
-var loading_text:Label
-var last_size=Vector2.ZERO
-
-func style(color:Color,radius:int=14,border:Color=Color.TRANSPARENT)->StyleBoxFlat:
-	var s=StyleBoxFlat.new();s.bg_color=color;s.set_corner_radius_all(radius);s.set_border_width_all(2);s.border_color=border;return s
-func label_(parent:Node,text_:String,size_:int,color:Color=Color.WHITE)->Label:
-	var l=Label.new();l.text=text_;l.add_theme_font_size_override("font_size",size_);l.add_theme_color_override("font_color",color);l.mouse_filter=Control.MOUSE_FILTER_IGNORE;parent.add_child(l);return l
+var title:Label
+var vehicle_stats:Label
+var description:Label
+var wallet:Label
+var map:Control
+var root_margin:MarginContainer
+var loading:Label
+var upgrades:Array=[]
+var profile
+var paint_colors=[Color("ef4551"),Color("29c5dd"),Color("f4bd55"),Color("e8edf5"),Color("785fe8"),Color("71dcaa")]
+func label_(parent:Node,text_:String,font_size:int=18,color:Color=Color.WHITE)->Label:
+	var label=Label.new();label.text=text_;label.add_theme_font_size_override("font_size",font_size);label.add_theme_color_override("font_color",color);label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;parent.add_child(label);return label
+func choose(parent:Node,caption:String,items:Array)->OptionButton:
+	label_(parent,caption,12,Color("a5b8cb"))
+	var control=OptionButton.new();control.fit_to_longest_item=false;control.clip_text=true;control.custom_minimum_size.y=44;control.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	for item in items:control.add_item(str(item))
+	parent.add_child(control);return control
 func _ready():
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var bg=ColorRect.new();bg.color=Color("0c151d");bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);bg.mouse_filter=Control.MOUSE_FILTER_IGNORE;add_child(bg)
-	header=label_(self,"RACE",35);header.position=Vector2(28,15)
-	label_(self,"GT77  /  DRIVE LAB",13,Color("64e6c6")).position=Vector2(143,35)
-	label_(self,"ELIGE TU PRÓXIMA VUELTA",14,Color("a9bbc8")).position=Vector2(30,66)
-	count_label=label_(self,"02 CIRCUITOS  ·  0.2.1",12,Color("8296a5"))
-	session_mode=OptionButton.new()
-	session_mode.add_item("MODO LIBRE",0)
-	session_mode.add_theme_color_override("font_color",Color("64e6c6"))
-	session_mode.tooltip_text="Próximamente: contrarreloj, carreras y desafíos"
-	add_child(session_mode)
-	for entry in Catalog.ENTRIES:
-		var card=Button.new();card.flat=false;card.focus_mode=Control.FOCUS_ALL;card.clip_contents=true
-		card.pressed.connect(func():select_track(entry.id));add_child(card)
-		var image=TextureRect.new();image.texture=load(entry.preview);image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;image.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED;image.mouse_filter=Control.MOUSE_FILTER_IGNORE;card.add_child(image);image.name="Image"
-		var n=label_(card,"01  PROVING GROUND" if entry.id=="lab" else "02  CIRCUITO DE LA SIERRA",13);n.name="Name"
-		var meta=label_(card,"%.2f km  /  %s"%[entry.length/1000,entry.difficulty],12,entry.accent);meta.name="Meta"
-		cards.append(card)
-	hero_panel=Panel.new();hero_panel.add_theme_stylebox_override("panel",style(Color("15222c")));hero_panel.clip_contents=true;add_child(hero_panel)
-	hero=TextureRect.new();hero.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;hero.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED;hero.mouse_filter=Control.MOUSE_FILTER_IGNORE;hero_panel.add_child(hero)
-	tag_label=label_(hero_panel,"",12,Color("ffb16b"))
-	title=label_(hero_panel,"",29)
-	location_label=label_(hero_panel,"",13,Color("a9bbc8"))
-	description=label_(self,"",17,Color("bccbd5"));description.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	details=Panel.new();details.add_theme_stylebox_override("panel",style(Color("13212b")));add_child(details)
-	label_(details,"FICHA DEL CIRCUITO",13,Color("a9bbc8")).position=Vector2(20,16)
-	for key in ["LONGITUD","ANCHO","RECTA PRINCIPAL","DESNIVEL","PERALTE MÁXIMO","SUPERFICIE"]:
-		var k=label_(details,key,10,Color("8da5b5"));var v=label_(details,"",20);stats.append([k,v])
-	map_panel=Panel.new();map_panel.add_theme_stylebox_override("panel",style(Color("101d26")));add_child(map_panel)
-	label_(map_panel,"MAPA DEL TRAZADO",12,Color("a9bbc8")).position=Vector2(18,12)
-	map=Map.new();map_panel.add_child(map)
-	var map_note=label_(map_panel,"Línea blanca: salida / meta",10,Color("7e97a9"));map_note.name="Legend"
-	settings_button=Button.new();settings_button.text="AJUSTES DE CONDUCCIÓN";settings_button.pressed.connect(func():settings_requested.emit());add_child(settings_button)
-	start_button=Button.new();start_button.pressed.connect(func():start_requested.emit());start_button.add_theme_font_size_override("font_size",19);start_button.add_theme_color_override("font_color",Color("10202b"));add_child(start_button)
-	footer=label_(self,"GT77 · CONDUCCIÓN LIBRE · MEJOR VUELTA POR CIRCUITO",11,Color("7e97a9"))
-	loading=Panel.new();loading.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);loading.add_theme_stylebox_override("panel",style(Color(.035,.06,.08,.97)));add_child(loading);loading.hide()
-	loading_text=label_(loading,"PREPARANDO PISTA…",24);loading_text.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	select_track(selected_id)
+	var bg=ColorRect.new();bg.color=Color(.025,.045,.075,.87);bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);bg.mouse_filter=Control.MOUSE_FILTER_IGNORE;add_child(bg)
+	root_margin=MarginContainer.new();add_child(root_margin)
+	for side in ["left","top","right","bottom"]:root_margin.add_theme_constant_override("margin_"+side,24)
+	var outer=VBoxContainer.new();outer.add_theme_constant_override("separation",12);root_margin.add_child(outer)
+	var header=HBoxContainer.new();outer.add_child(header)
+	var logo=label_(header,"RACE",40);logo.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	wallet=label_(header,"OFFLINE  /  0.3.0",15,Color("59e8c9"));wallet.custom_minimum_size.x=300
+	var scroll=ScrollContainer.new();scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL;scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED;outer.add_child(scroll)
+	var columns=HBoxContainer.new();columns.size_flags_horizontal=Control.SIZE_EXPAND_FILL;columns.add_theme_constant_override("separation",24);scroll.add_child(columns)
+	var setup=VBoxContainer.new();setup.size_flags_horizontal=Control.SIZE_EXPAND_FILL;setup.size_flags_stretch_ratio=.9;setup.add_theme_constant_override("separation",8);columns.add_child(setup)
+	label_(setup,"01  /  TU EVENTO",22,Color("59e8c9"))
+	session_mode=choose(setup,"MODALIDAD",Rules.MODES)
+	var names=[]
+	for entry in Catalog.ENTRIES:names.append(entry.name)
+	track_choice=choose(setup,"CIRCUITO",names);track_choice.item_selected.connect(func(index):select_track(Catalog.ENTRIES[index].id))
+	weather_choice=choose(setup,"CONDICIONES",["Seco · día","Mojado · adherencia reducida","Atardecer","Noche"])
+	difficulty_choice=choose(setup,"RIVALES · IA DE TRAYECTORIA SIN COLISIONES",["Accesible","Competitivo","Experto"])
+	reverse_choice=CheckButton.new();reverse_choice.text="Recorrido inverso";reverse_choice.custom_minimum_size.y=40;setup.add_child(reverse_choice)
+	label_(setup,"Drag: recta exclusiva de 402 m.\nSprint / Rally: 75 % del trazado seleccionado.",13,Color("a5b8cb"))
+	var garage=VBoxContainer.new();garage.size_flags_horizontal=Control.SIZE_EXPAND_FILL;garage.add_theme_constant_override("separation",8);columns.add_child(garage)
+	label_(garage,"02  /  GARAJE",22,Color("59e8c9"))
+	names=[]
+	for entry in Vehicles.all():names.append(entry.vehicle_class+"  /  "+entry.name)
+	vehicle_choice=choose(garage,"24 VEHÍCULOS · CATÁLOGO ORIGINAL",names);vehicle_choice.item_selected.connect(func(index):select_vehicle(Vehicles.all()[index].id))
+	var orbit=Button.new();orbit.text="VER AUTO 360°";orbit.custom_minimum_size.y=40;orbit.pressed.connect(func():preview_requested.emit());garage.add_child(orbit)
+	vehicle_stats=label_(garage,"",16);vehicle_stats.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	paint_choice=choose(garage,"PINTURA",["Racing red","Arctic cyan","Solar gold","Pearl white","Ultraviolet","Mint"])
+	paint_choice.item_selected.connect(func(_index):vehicle_selected.emit(vehicle_id))
+	for component in ["motor","grip","brakes"]:
+		var b=Button.new();b.custom_minimum_size.y=40;b.pressed.connect(func():upgrade_requested.emit(component));garage.add_child(b);upgrades.append(b)
+	label_(garage,"Mejoras: motor +5 %, agarre +3 %, frenos +5 % por nivel.\nGana créditos completando eventos y vueltas válidas.",13,Color("a5b8cb")).autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var preview=VBoxContainer.new();preview.size_flags_horizontal=Control.SIZE_EXPAND_FILL;columns.add_child(preview)
+	title=label_(preview,"",22);title.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	map=Map.new();map.custom_minimum_size=Vector2(220,240);map.size_flags_horizontal=Control.SIZE_EXPAND_FILL;preview.add_child(map)
+	description=label_(preview,"",15,Color("b8c9d7"));description.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var actions=HBoxContainer.new();outer.add_child(actions)
+	var settings=Button.new();settings.text="AJUSTES";settings.custom_minimum_size=Vector2(180,54);settings.pressed.connect(func():settings_requested.emit());actions.add_child(settings)
+	start_button=Button.new();start_button.text="SALIR A PISTA  →";start_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL;start_button.custom_minimum_size.y=54;start_button.pressed.connect(func():start_requested.emit());actions.add_child(start_button)
+	var style=StyleBoxFlat.new();style.bg_color=Color("db3d53");style.set_corner_radius_all(8);start_button.add_theme_stylebox_override("normal",style)
+	loading=label_(outer,"",17,Color("59e8c9"));loading.hide()
+	select_track(selected_id);select_vehicle(vehicle_id);refresh_profile()
 func select_track(id:String):
 	selected_id=Catalog.get_entry(id).id
-	var entry=Catalog.get_entry(selected_id)
 	if not is_node_ready():return
-	hero.texture=load(entry.preview);title.text=entry.name;tag_label.text=entry.tag;tag_label.modulate=entry.accent;location_label.text=entry.location;description.text=entry.description
-	var values=["%.2f km"%(entry.length/1000),"%d m"%entry.width,"%d m"%entry.straight,"%d m"%entry.elevation,"%d %%"%entry.bank,"Asfalto / grava" if selected_id=="sierra" else "Asfalto / césped"]
-	for i in range(stats.size()):stats[i][1].text=values[i]
-	stats[5][1].add_theme_font_size_override("font_size",14)
-	map.set_track(selected_id)
-	start_button.text="CONDUCIR EN SIERRA  →" if selected_id=="sierra" else "SALIR A PROVING GROUND  →"
-	start_button.add_theme_stylebox_override("normal",style(entry.accent,12));start_button.add_theme_stylebox_override("hover",style(entry.accent.lightened(.1),12));start_button.add_theme_stylebox_override("pressed",style(entry.accent.darkened(.15),12))
-	for i in range(cards.size()):
-		var e=Catalog.ENTRIES[i];var c=cards[i]
-		c.add_theme_stylebox_override("normal",style(Color("192a36") if e.id==selected_id else Color("111e28"),12,e.accent if e.id==selected_id else Color("243745")))
-		c.add_theme_stylebox_override("focus",style(Color.TRANSPARENT,12,Color.WHITE))
+	var entry=Catalog.get_entry(selected_id)
+	for i in range(Catalog.ENTRIES.size()):
+		if Catalog.ENTRIES[i].id==id:track_choice.select(i)
+	title.text=entry.name;map.set_track(selected_id)
+	description.text="%.2f km  /  %s\n\n%s\n\nDESAFÍOS DIARIOS\nVuelta válida · +200 CR\n150 km/h durante 10 s · +250 CR\nDerrapar 500 m · +300 CR"%[float(entry.length)/1000,entry.surface,entry.description]
 	selected.emit(selected_id)
+func select_vehicle(id:String):
+	vehicle_id=id
+	if not is_node_ready():return
+	var data=Vehicles.get_vehicle(id)
+	for i in range(Vehicles.all().size()):
+		if Vehicles.all()[i].id==id:vehicle_choice.select(i)
+	vehicle_stats.text="%s · %s\n%d kg  /  %d Nm\n%s"%[data.family,data.drive,data.mass,data.torque,"Modelo GT77" if id=="gt77" else "Carrocería procedural original"]
+	refresh_profile();vehicle_selected.emit(id)
+func refresh_profile():
+	if not is_node_ready() or profile==null:return
+	wallet.text="%d CR  /  NIVEL %d  /  OFFLINE"%[profile.data.credits,1+int(profile.data.xp)/500]
+	for i in range(upgrades.size()):
+		var component=["motor","grip","brakes"][i];var level=profile.level(vehicle_id,component);var cost=500*(level+1)
+		upgrades[i].text="%s  %d/3  ·  %s"%[["MOTOR","NEUMÁTICOS","FRENOS"][i],level,"MÁXIMO" if level>=3 else str(cost)+" CR"]
+		upgrades[i].disabled=level>=3 or profile.data.credits<cost
 func set_loading(value:bool,message:String="PREPARANDO PISTA…"):
-	loading.visible=value;loading_text.text=message;start_button.disabled=value
+	loading.visible=value;loading.text=message;start_button.disabled=value
 func _process(_dt):
-	if size!=last_size:last_size=size;_layout()
-func _layout():
-	var w=size.x;var h=size.y;var pad=28.0;var gap=18.0
-	var left=224.0;var side=294.0;var center_w=w-pad*2-left-side-gap*2
-	var top=104.0;var content_h=h-top-106
-	count_label.position=Vector2(w-208,35)
-	session_mode.position=Vector2(maxf(270,w*.42),24)
-	session_mode.size=Vector2(185,42)
-	for i in range(cards.size()):
-		var c=cards[i];c.position=Vector2(pad,top+i*201);c.size=Vector2(left,183)
-		c.get_node("Image").position=Vector2(8,8);c.get_node("Image").size=Vector2(left-16,105)
-		c.get_node("Name").position=Vector2(12,124);c.get_node("Meta").position=Vector2(12,151)
-	var cx=pad+left+gap;var sx=w-pad-side
-	hero_panel.position=Vector2(cx,top);hero_panel.size=Vector2(center_w,content_h-87)
-	var image_h=hero_panel.size.y-108
-	hero.position=Vector2(2,2);hero.size=Vector2(center_w-4,image_h)
-	tag_label.position=Vector2(18,image_h+13);title.position=Vector2(18,image_h+34);title.add_theme_font_size_override("font_size",25 if center_w<550 else 29)
-	location_label.position=Vector2(18,image_h+76)
-	description.position=Vector2(cx,top+content_h-69);description.size=Vector2(center_w,70)
-	map_panel.position=Vector2(sx,top);map_panel.size=Vector2(side,content_h*.48)
-	map.position=Vector2(8,38);map.size=Vector2(side-16,map_panel.size.y-67)
-	map_panel.get_node("Legend").position=Vector2(18,map_panel.size.y-23)
-	details.position=Vector2(sx,top+map_panel.size.y+gap);details.size=Vector2(side,content_h-map_panel.size.y-gap)
-	for i in range(stats.size()):
-		var x=20+(i%2)*137;var y=48+floori(i/2.0)*59
-		stats[i][0].position=Vector2(x,y);stats[i][1].position=Vector2(x,y+16)
-	settings_button.position=Vector2(pad,h-77);settings_button.size=Vector2(286,51)
-	start_button.position=Vector2(w-pad-370,h-80);start_button.size=Vector2(370,57)
-	footer.position=Vector2(336,h-59)
-	footer.visible=w>=1250
-	loading_text.position=Vector2(w*.15,h*.5-25);loading_text.size=Vector2(w*.7,100)
+	var safe=Safe.rect(self);root_margin.position=safe.position;root_margin.size=safe.size
