@@ -11,6 +11,9 @@ var start_transform=Transform3D(Basis.IDENTITY,Vector3(-58,.75,60))
 var skid_instances:MultiMeshInstance3D
 var skid_index=0
 var sky_sun:DirectionalLight3D
+# Grid for nearest-track lookup. Avoid scanning every point each physics tick.
+const GRID_CELL_METERS=40.0
+var _point_grid:Dictionary={}
 
 func material(color:Color,rough:float=.9)->StandardMaterial3D:
 	var m=StandardMaterial3D.new();m.albedo_color=color;m.roughness=rough;return m
@@ -67,11 +70,14 @@ func _build_path():
 	_index_path()
 
 func _index_path():
-	length_m=0.0;tangents.clear();stations.clear()
+	length_m=0.0;tangents.clear();stations.clear();_point_grid.clear()
 	for i in range(points.size()):
 		stations.append(length_m)
 		tangents.append((points[(i+1)%points.size()]-points[(i-1+points.size())%points.size()]).normalized())
 		length_m+=points[i].distance_to(points[(i+1)%points.size()])
+		var cell=Vector2i(floori(points[i].x/GRID_CELL_METERS),floori(points[i].z/GRID_CELL_METERS))
+		var indices:PackedInt32Array=_point_grid.get(cell,PackedInt32Array())
+		indices.append(i);_point_grid[cell]=indices
 
 func progress_at(point:Vector3)->float:
 	var i=closest_index(point);var best=INF;var progress=0.0
@@ -155,13 +161,31 @@ func _build_skids():
 	skid_instances.material_override=material(Color(.10,.115,.12));skid_instances.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF;add_child(skid_instances)
 
 func add_skid(point:Vector3,forward:Vector3,normal:Vector3=Vector3.UP):
-	var basis=Basis.looking_at(forward.slide(normal).normalized(),normal)
-	skid_instances.multimesh.set_instance_transform(skid_index,Transform3D(basis,point+normal*.012))
+	# Ignore degenerate vectors instead of constructing an invalid Basis.
+	if not point.is_finite() or not forward.is_finite() or not normal.is_finite():return
+	if not is_instance_valid(skid_instances) or skid_instances.multimesh==null:return
+	if normal.length_squared()<0.001:return
+	var up=normal.normalized()
+	var direction=forward.slide(up)
+	if direction.length_squared()<0.0001:return
+	var basis=Basis.looking_at(direction.normalized(),up)
+	skid_instances.multimesh.set_instance_transform(skid_index,Transform3D(basis,point+up*.012))
 	skid_index=(skid_index+1)%480
 	skid_instances.multimesh.visible_instance_count=mini(480,skid_instances.multimesh.visible_instance_count+1)
 
 func closest_index(point:Vector3)->int:
-	var best=INF;var index=0
+	if points.is_empty() or not point.is_finite():return 0
+	var best=INF;var index=0;var found=false
+	var cell=Vector2i(floori(point.x/GRID_CELL_METERS),floori(point.z/GRID_CELL_METERS))
+	for dx in range(-1,2):
+		for dz in range(-1,2):
+			var key=cell+Vector2i(dx,dz)
+			if not _point_grid.has(key):continue
+			for i in _point_grid[key]:
+				var distance=point.distance_squared_to(points[i])
+				if distance<best:best=distance;index=i;found=true
+	# When far off the course, use an exact fallback for reliable respawn.
+	if found and best<GRID_CELL_METERS*GRID_CELL_METERS*4.0:return index
 	for i in range(points.size()):
 		var distance=point.distance_squared_to(points[i])
 		if distance<best:best=distance;index=i

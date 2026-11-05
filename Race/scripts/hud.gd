@@ -7,6 +7,17 @@ var track
 var session
 var font:Font
 var mono:Font
+var _cached_track:Node3D
+var _cached_rect=Rect2()
+var _cached_map_transform=Transform2D()
+var _cached_polyline=PackedVector2Array()
+func _cache_map(map_rect:Rect2)->void:
+	if track==_cached_track and map_rect==_cached_rect:return
+	_cached_track=track;_cached_rect=map_rect;_cached_polyline.clear()
+	if not is_instance_valid(track) or track.points.is_empty():return
+	_cached_map_transform=Catalog.map_transform(track.points,map_rect)
+	for point in track.points:_cached_polyline.append(_cached_map_transform*Vector2(point.x,point.z))
+	_cached_polyline.append(_cached_polyline[0])
 func _ready():
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);mouse_filter=Control.MOUSE_FILTER_IGNORE
 	font=load("res://assets/regular.ttf");mono=load("res://assets/mono.ttf")
@@ -24,10 +35,10 @@ func _draw():
 	panel(Rect2(w*.5-180,88,360,62));text(Vector2(w*.5-163,112),"VUELTA %d"%(session.laps+1),12,muted)
 	text(Vector2(w*.5-163,137),session.time_string(session.lap_time),22,Color.WHITE,true)
 	text(Vector2(w*.5+22,112),"RÉCORD PERSONAL",11,muted);text(Vector2(w*.5+22,136),session.time_string(session.best_lap) if session.best_lap>0 else "--:--.---",19,mint,true)
-	panel(Rect2(20,94,190,160));var map_transform=Catalog.map_transform(track.points,Rect2(34,110,161,126))
-	var lines=PackedVector2Array()
-	for point in track.points:lines.append(map_transform*Vector2(point.x,point.z))
-	lines.append(lines[0]);draw_polyline(lines,Color(.5,.65,.77,.65),4,true)
+	panel(Rect2(20,94,190,160));_cache_map(Rect2(34,110,161,126))
+	if _cached_polyline.size()<2:return
+	var map_transform=_cached_map_transform
+	draw_polyline(_cached_polyline,Color(.5,.65,.77,.65),4,true)
 	for rival in session.rivals:draw_circle(map_transform*Vector2(rival.position.x,rival.position.z),3,Color("ff6584"))
 	var pos=map_transform*Vector2(car.position.x,car.position.z);draw_circle(pos,5,mint)
 	var fwd=-car.global_basis.z;draw_line(pos,pos+Vector2(fwd.x,fwd.z)*12,mint,2)
