@@ -48,10 +48,10 @@ static func create(data: Dictionary, mounts: Array, paint: Color) -> Node3D:
 		for side in [-1,1]:
 			part(root,"Mirror",Vector3(side*w*.53,.93,-.48),Vector3(.17,.10,.22),body)
 			part(root,"Door",Vector3(side*w*.485,.68,.08),Vector3(.035,.22,l*.43),body)
-			part(root,"Headlight",Vector3(side*w*.32,.69,-l*.47),Vector3(w*.23,.09,.045),lamp)
-			part(root,"TailLight",Vector3(side*w*.32,.69,l*.44),Vector3(w*.25,.07,.045),rear)
+			part(root,"Headlight",Vector3(side*w*.32,.69,-l*.495),Vector3(w*.23,.09,.045),lamp)
+			part(root,"TailLight",Vector3(side*w*.32,.69,l*.465),Vector3(w*.25,.07,.045),rear)
 	part(root,"Splitter",Vector3(0,.39,-l*.43),Vector3(w*1.01,.06,.42),dark)
-	part(root,"Grille",Vector3(0,.52,-l*.46),Vector3(w*.5,.13,.04),dark)
+	part(root,"Grille",Vector3(0,.52,-l*.495),Vector3(w*.5,.13,.04),dark)
 	if data.body in ["gt","hyper","formula","rally"]:
 		for side in [-1,1]: part(root,"WingMount",Vector3(side*.48,.94,l*.36),Vector3(.06,.40,.11),dark)
 		part(root,"Wing",Vector3(0,1.14,l*.36),Vector3(w*1.07,.07,.36),dark)

@@ -47,15 +47,15 @@ func _batch_boxes():
 	for parent in get_children():
 		for child in parent.get_children():
 			if child is MeshInstance3D and child.mesh is BoxMesh and child.material_override:
-				var key=str(child.mesh.size)+"/"+str(child.material_override.get_instance_id())
+				var key=str(child.material_override.get_instance_id())
 				if not groups.has(key):groups[key]=[]
 				groups[key].append(child)
 	for key in groups:
 		var meshes=groups[key]
 		if meshes.size()<3:continue
-		var instance=MultiMeshInstance3D.new();var mm=MultiMesh.new();mm.transform_format=MultiMesh.TRANSFORM_3D;mm.mesh=meshes[0].mesh;mm.instance_count=meshes.size();instance.multimesh=mm;instance.material_override=meshes[0].material_override;add_child(instance)
+		var instance=MultiMeshInstance3D.new();var mm=MultiMesh.new();mm.transform_format=MultiMesh.TRANSFORM_3D;var unit_box=BoxMesh.new();unit_box.size=Vector3.ONE;mm.mesh=unit_box;mm.instance_count=meshes.size();instance.multimesh=mm;instance.material_override=meshes[0].material_override;add_child(instance)
 		for i in range(meshes.size()):
-			mm.set_instance_transform(i,global_transform.affine_inverse()*meshes[i].global_transform)
+			mm.set_instance_transform(i,global_transform.affine_inverse()*meshes[i].global_transform*Transform3D(Basis.from_scale(meshes[i].mesh.size),Vector3.ZERO))
 			meshes[i].queue_free()
 
 func _build_path():
