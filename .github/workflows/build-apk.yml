@@ -44,7 +44,7 @@ jobs:
       - name: Physics, catalogs, rules and gameplay regression tests
         run: |
           set -euo pipefail
-          for test in physics_test expansion_test track_integration_test experience_test; do
+          for test in physics_test expansion_test track_integration_test experience_test mobile_lite_test; do
             timeout 300 godot --headless --path Race --fixed-fps 120 --script tests/$test.gd 2>&1 | tee "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' "$test.log"; then exit 1; fi
           done
@@ -76,7 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p outputs
-          godot --headless --path Race --export-debug Android "$GITHUB_WORKSPACE/outputs/RACE_0.3.0.apk" 2>&1 | tee export.log
+          godot --headless --path Race --export-debug Android "$GITHUB_WORKSPACE/outputs/RACE_0.3.1.apk" 2>&1 | tee export.log
           test -s outputs/RACE_0.3.0.apk
           unzip -l outputs/RACE_0.3.0.apk > /tmp/apk.txt
           grep -E 'imported/gt77_mobile.glb-.*\.scn' /tmp/apk.txt
@@ -89,7 +89,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: RACE-0.3-validation
+          name: RACE-0.3.1-validation
           path: |
             *.log
             Race/tests/*results.json
@@ -97,7 +97,7 @@ jobs:
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
-          name: RACE-0.3.0-Android
+          name: RACE-0.3.1-Android
           path: outputs/*
           if-no-files-found: error
       - name: Publish downloadable test version
@@ -105,5 +105,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.3.0-alpha.1 >/dev/null 2>&1 || gh release create v0.3.0-alpha.1 --target "$GITHUB_SHA" --title "RACE 0.3.0 · Offline alpha" --notes-file Race/docs/RELEASE_0.3.0.md --prerelease
+          gh release view v0.3.1-alpha.1 >/dev/null 2>&1 || gh release create v0.3.0-alpha.1 --target "$GITHUB_SHA" --title "RACE 0.3.1 · Android stabilization" --notes-file Race/docs/RELEASE_0.3.1.md --prerelease
           gh release upload v0.3.0-alpha.1 outputs/* --clobber

@@ -12,7 +12,7 @@ static func apply_lite_defaults(config:ConfigFile)->void:
 	config.set_value("drive","shadows",false)
 	config.set_value("drive","vibration",false)
 	config.set_value("stability","lite_031_applied",true)
-	config.save("user://settings.cfg")
+	# Caller decides when to persist settings; unit tests remain isolated.
 
 static func configure_engine(lite:bool)->void:
 	if lite:

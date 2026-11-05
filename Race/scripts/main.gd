@@ -11,6 +11,7 @@ const HudScript=preload("res://scripts/hud.gd")
 const LapTracker=preload("res://scripts/lap_tracker.gd")
 const Rules=preload("res://scripts/gameplay/race_rules.gd")
 const Safe=preload("res://scripts/ui/safe_area.gd")
+const MobileProfile=preload("res://scripts/core/mobile_profile.gd")
 var profile=preload("res://scripts/core/profile.gd").new()
 var rules=Rules.new()
 var lap_tracker=LapTracker.new()
@@ -73,12 +74,20 @@ var results_paid=false
 var ranking_distance=0.0
 var initial_environment:Environment
 var screenshot_mode=false
+var lite_profile=false
+var diagnostic_seconds=0.0
 
 func _ready():
 	process_mode=Node.PROCESS_MODE_ALWAYS;get_tree().quit_on_go_back=false
 	DisplayServer.screen_set_keep_on(true)
 	if OS.get_name()=="Android":DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	profile.load_profile();config.load("user://settings.cfg")
+	lite_profile=OS.get_name()=="Android" and MobileProfile.is_galaxy_a05(OS.get_model_name())
+	if lite_profile:
+		MobileProfile.apply_lite_defaults(config)
+		MobileProfile.configure_engine(true)
+		config.save("user://settings.cfg")
+	print("RACE_DIAG boot version=0.3.1 model=%s lite=%s physics_hz=%d"%[OS.get_model_name(),str(lite_profile),Engine.physics_ticks_per_second])
 	selected_track_id=Catalog.get_entry(config.get_value("session","selected_track","sierra")).id
 	track=TrackScript.new();add_child(track)
 	car=CarScript.new();add_child(car);car.transform=track.start_transform;car.freeze=true
@@ -157,6 +166,7 @@ func _build_photo():
 	var help=label_(row,"  Arrastra para girar · C para guardar",16);help.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	photo_ui.hide()
 func _open_photo():
+	if audio_player:audio_player.set_active(false)
 	photo_mode=true;photo_angle=0;get_tree().paused=true;pause_menu.hide();action_ui.hide();hud.hide();controls.hide();photo_ui.show()
 func _build_results():
 	results=overlay();var box=content(results);label_(box,"RESULTADOS",34)
@@ -168,7 +178,7 @@ func _apply_settings():
 	Engine.max_fps=30 if fps_select.selected==0 else 60
 	get_viewport().scaling_3d_scale=[.7,.85,1.0][quality_select.selected]
 	if track:track.sky_sun.shadow_enabled=shadows.button_pressed and quality_select.selected>0
-	if audio_player:audio_player.enabled=sound.button_pressed
+	if audio_player:audio_player.set_enabled(sound.button_pressed)
 	if ghost:ghost.enabled=ghost_check.button_pressed
 	var values={"style":style_select.selected,"controls":control_select.selected,"angle":sensitivity.value,"invert":inversion.button_pressed,"lefty":lefty.button_pressed,"quality":quality_select.selected,"fps":fps_select.selected,"shadows":shadows.button_pressed,"sound":sound.button_pressed,"vibration":vibration.button_pressed,"ghost":ghost_check.button_pressed}
 	for key in values:config.set_value("drive",key,values[key])
@@ -182,7 +192,8 @@ func _select_track(id:String):
 	selected_track_id=id;config.set_value("session","selected_track",id);config.save("user://settings.cfg")
 func _start():
 	if loading_track:return
-	loading_track=true;selector.set_loading(true);car.freeze=true;controls.active=false;get_tree().paused=false
+	loading_track=true;selector.set_loading(true);car.freeze=true;controls.active=false;playing=false;hud.hide();get_tree().paused=false
+	if audio_player:audio_player.set_active(false)
 	await get_tree().process_frame
 	for rival in rivals:rival.queue_free()
 	rivals.clear()
@@ -198,7 +209,11 @@ func _start():
 		next_track=SierraScript.new();next_track.packed=packed
 	elif selected_track_id=="lab":next_track=TrackScript.new()
 	else:next_track=ExpansionScript.new();next_track.definition=Catalog.get_entry(selected_track_id)
-	remove_child(track);track.queue_free();track=next_track;add_child(track);loaded_track_id=selected_track_id;hud.track=track
+	var old_track=track
+	remove_child(old_track);old_track.queue_free()
+	# Allow the old track and its GPU resources to be released before loading the new scene.
+	await get_tree().process_frame
+	track=next_track;add_child(track);loaded_track_id=selected_track_id;hud.track=track
 	if selector.reverse_choice.button_pressed and selector.session_mode.selected!=8:
 		var reverse_points=PackedVector3Array([track.points[0]])
 		for i in range(track.points.size()-1,0,-1):reverse_points.append(track.points[i])
@@ -219,7 +234,10 @@ func _start():
 	car.global_transform=track.start_transform;car.request_reset(track.start_transform);car.physics_enabled=true;car.visible=true;car.freeze=false
 	playing=true;menu.hide();selector.hide();selector.set_loading(false);results.hide();pause_menu.hide();action_ui.show();hud.show();controls.show();controls.active=true;controls.clear();controls.calibrate()
 	camera.position=car.global_transform*Vector3(0,2.7,6.3);camera.look_at(car.position-car.basis.z*3,Vector3.UP);camera.make_current()
-	loading_track=false;notify("Cruza la meta para iniciar tu vuelta" if rules.mode in [0,1] else game_mode)
+	loading_track=false
+	if audio_player:audio_player.set_active(true)
+	print("RACE_DIAG session=start track=%s vehicle=%s mode=%s"%[track.track_id,selector.vehicle_id,game_mode])
+	notify("Cruza la meta para iniciar tu vuelta" if rules.mode in [0,1] else game_mode)
 func _apply_weather():
 	var weather=selector.weather_choice.selected
 	car.surface_multiplier=.73 if weather==1 else 1.0
@@ -238,11 +256,14 @@ func _apply_weather():
 		var mesh=BoxMesh.new();mesh.size=Vector3(.025,.7,.025);rain.mesh=mesh;rain.color=Color(.65,.8,.95,.45);add_child(rain)
 func _pause():
 	if not playing or rules.completed:return
+	if audio_player:audio_player.set_active(false)
 	controls.clear();get_tree().paused=true;pause_menu.show()
 func _resume():
 	photo_mode=false;photo_ui.hide();hud.show();controls.show();action_ui.visible=playing;get_tree().paused=false;pause_menu.hide();controls.clear();controls.calibrate()
+	if audio_player:audio_player.set_active(playing)
 	if not playing:selector.show()
 func _back_to_menu():
+	if audio_player:audio_player.set_active(false)
 	photo_mode=false;photo_ui.hide();get_tree().paused=false;pause_menu.hide();results.hide();playing=false;menu.hide();selector.show();selector.refresh_profile();action_ui.hide();controls.active=false;controls.show();controls.clear();hud.show();car.freeze=true;car.linear_velocity=Vector3.ZERO;car.angular_velocity=Vector3.ZERO;ghost.hide()
 	for rival in rivals:rival.queue_free()
 	rivals.clear()
@@ -290,6 +311,10 @@ func _notification(what):
 		else:get_tree().quit()
 func _physics_process(dt):
 	if not playing or get_tree().paused or rules.completed:return
+	if not car.global_transform.is_finite() or not car.linear_velocity.is_finite():
+		print("RACE_DIAG physics=recover_invalid_transform")
+		car.request_reset(track.start_transform)
+		return
 	var progress=track.progress_at(car.position)
 	var road_distance=track.road_distance(car.position)
 	var on_road=road_distance<11.0 and car.contacts>=2
@@ -358,6 +383,7 @@ func _daily(id:String,value:float,target:float,reward:int):
 func _finish_event():
 	if results_paid:return
 	results_paid=true;controls.clear();controls.active=false;car.freeze=true;action_ui.hide();ghost.hide();results.show()
+	if audio_player:audio_player.set_active(false)
 	var success=rules.valid and not ("invalidado" in rules.message or "agotado" in rules.message or "eliminado" in rules.message)
 	var reward=maxi(100,700-rules.position*80) if success else 0
 	if success:profile.reward(reward,100)
@@ -376,6 +402,11 @@ func _continue_event():
 func _process(dt):
 	if not is_instance_valid(car):return
 	message_time=maxf(0,message_time-dt)
+	if OS.get_name()=="Android" and playing and not get_tree().paused:
+		diagnostic_seconds+=dt
+		if diagnostic_seconds>=10.0:
+			diagnostic_seconds=0.0
+			print("RACE_DIAG tick track=%s vehicle=%s fps=%.1f physics_ms=%.2f mem_mb=%.1f nodes=%d objects=%d speed=%.1f"%[track.track_id,car.vehicle_data.id,Performance.get_monitor(Performance.TIME_FPS),Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)*1000.0,Performance.get_monitor(Performance.MEMORY_STATIC)/1048576.0,int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),int(Performance.get_monitor(Performance.OBJECT_COUNT)),car.speed_kmh])
 	for panel in [menu,pause_menu,results]:
 		if panel and panel.visible:
 			var safe=Safe.rect(panel);panel.get_node("Safe").position=safe.position;panel.get_node("Safe").size=safe.size
@@ -387,6 +418,7 @@ func _process(dt):
 	if is_instance_valid(rain):rain.position=car.position+Vector3.UP*12
 	if photo_mode:
 		camera.position=car.position+Vector3(sin(photo_angle)*7,photo_height,cos(photo_angle)*7);camera.look_at(car.position,Vector3.UP);return
+	if not car.global_transform.is_finite():return
 	if not playing:
 		menu_time+=dt;var angle=menu_time*.15
 		camera.position=car.position+Vector3(sin(angle)*6.6,2,-cos(angle)*6.6);camera.fov=52;camera.look_at(car.position,Vector3.UP)
