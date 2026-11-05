@@ -21,7 +21,7 @@ var steering_input=0.0
 var handbrake_input=0.0
 var throttle=0.0
 var steering=0.0
-var driving_mode=1
+var driving_mode=0
 var gear=1
 var reverse=false
 var rpm=950.0
@@ -39,10 +39,42 @@ var respawn_requested=false
 var respawn_transform=Transform3D.IDENTITY
 var aero_enabled=true
 var physics_enabled=true
+var vehicle_data=preload("res://scripts/vehicles/vehicle_catalog.gd").get_vehicle("gt77")
+var surface_multiplier=1.0
+var engine_multiplier=1.0
+var grip_multiplier=1.0
+var brake_multiplier=1.0
+var paint=Color("ef4551")
+var body_shape:BoxShape3D
+
+func configure(data:Dictionary, color:Color=Color("ef4551")):
+	vehicle_data=data;paint=color
+	mass=float(data.mass)
+	inertia=Vector3(1800,2300,620)*(mass/1280.0)
+	var half_width=float(data.width)*.455
+	var half_length=float(data.length)*.329
+	mounts=[Vector3(-half_width,.10,-half_length),Vector3(half_width,.10,-half_length),Vector3(-half_width,.10,half_length),Vector3(half_width,.10,half_length)]
+	if body_shape:body_shape.size=Vector3(float(data.width)*.92,.46,float(data.length)*.96)
+	if is_instance_valid(visual):
+		remove_child(visual);visual.queue_free()
+	_build_visual()
+
+func _build_visual():
+	wheel_meshes.clear();wheels.clear()
+	if vehicle_data.id=="gt77":visual=load("res://assets/gt77_mobile.glb").instantiate()
+	else:visual=preload("res://scripts/vehicles/vehicle_visual.gd").create(vehicle_data,mounts,paint)
+	add_child(visual);visual.position.y=-.55
+	for tag in ["WHEEL_FL","WHEEL_FR","WHEEL_RL","WHEEL_RR"]:
+		wheel_meshes.append(visual.find_child(tag,true,false))
+		wheels.append({"length":REST,"compression":0.0,"omega":0.0,"spin":0.0,"load":0.0,"slip":0.0,"lat_slip":0.0,"ground":false,"point":Vector3.ZERO,"normal":Vector3.UP,"steer":0.0})
+
+func driven(i:int)->bool:
+	return vehicle_data.drive=="AWD" or (i<2 if vehicle_data.drive=="FWD" else i>=2)
+
 
 func _ready():
 	process_mode=Node.PROCESS_MODE_PAUSABLE
-	mass=1280.0
+	mass=float(vehicle_data.mass)
 	center_of_mass_mode=RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	center_of_mass=Vector3(0,-0.13,0.10)
 	inertia=Vector3(1800,2300,620)
@@ -55,13 +87,10 @@ func _ready():
 	collision_mask=1
 	var shape=CollisionShape3D.new()
 	var box=BoxShape3D.new();box.size=Vector3(1.78,0.46,4.20)
+	body_shape=box
 	shape.shape=box;shape.position=Vector3(0,-0.08,0);add_child(shape)
 	var pm=PhysicsMaterial.new();pm.friction=0.35;pm.bounce=0.08;physics_material_override=pm
-	visual=load("res://assets/gt77_mobile.glb").instantiate();add_child(visual);visual.position.y=-0.55
-	for tag in ["WHEEL_FL","WHEEL_FR","WHEEL_RL","WHEEL_RR"]:
-		var node=visual.find_child(tag,true,false)
-		wheel_meshes.append(node)
-		wheels.append({"length":REST,"compression":0.0,"omega":0.0,"spin":0.0,"load":0.0,"slip":0.0,"lat_slip":0.0,"ground":false,"point":Vector3.ZERO,"normal":Vector3.UP,"steer":0.0})
+	configure(vehicle_data,paint)
 	_build_cockpit()
 
 func _build_cockpit():
@@ -103,16 +132,22 @@ func _integrate_forces(state:PhysicsDirectBodyState3D):
 	last_velocity=velocity
 	throttle=move_toward(throttle,throttle_input,dt*(2.2 if throttle_input>throttle else 7.0))
 	var steering_max=lerpf(.52,[.115,.18,.30][driving_mode],clampf(speed_kmh/170.0,0,1))
+	if driving_mode<2 and speed_kmh>25:
+		var max_lateral_accel=10.5 if driving_mode==0 else 15.0
+		steering_max=minf(steering_max,atan(max_lateral_accel*2.83/maxf(forward_speed*forward_speed,1.0)))
 	steering=move_toward(steering,-steering_input*steering_max,dt*1.8)
 	shift_delay=maxf(0.0,shift_delay-dt)
 	var ratio=3.0 if reverse else RATIOS[gear-1]
-	var road_rpm=absf((wheels[2].omega+wheels[3].omega)*.5)*ratio*FINAL_DRIVE*60.0/TAU
+	var driven_speed=0.0;var driven_count=0
+	for index in range(4):
+		if driven(index):driven_speed+=wheels[index].omega;driven_count+=1
+	var road_rpm=absf(driven_speed/maxi(driven_count,1))*ratio*FINAL_DRIVE*60.0/TAU
 	rpm=lerpf(rpm,clampf(maxf(950.0+throttle*1500.0,road_rpm),950,8500),minf(dt*10,1))
 	if not reverse and shift_delay<=0:
 		if rpm>7350 and gear<6:gear+=1;shift_delay=.22
 		elif rpm<2650 and gear>1:gear-=1;shift_delay=.18
 	var torque_curve=clampf(1.0-0.34*pow((rpm-5400)/3600.0,2.0),.35,1.0)
-	var engine_torque=520.0*torque_curve*throttle
+	var engine_torque=float(vehicle_data.torque)*engine_multiplier*torque_curve*throttle
 	if shift_delay>0 or rpm>8200:engine_torque*=.10
 	var direction=-1.0 if reverse else 1.0
 	var axle_torque=engine_torque*ratio*FINAL_DRIVE*.90*direction
@@ -148,28 +183,30 @@ func _integrate_forces(state:PhysicsDirectBodyState3D):
 		var right=fwd.cross(hit.normal).normalized()
 		var vlong=point_velocity.dot(fwd)
 		var vlat=point_velocity.dot(right)
-		var friction=1.28
+		var friction=float(vehicle_data.grip)
 		var rolling=.016
 		if hit.collider.has_meta("surface"):
 			if hit.collider.get_meta("surface")=="grass":friction=.58;rolling=.065
 			elif hit.collider.get_meta("surface")=="gravel":friction=.45;rolling=.12
 			elif hit.collider.get_meta("surface")=="kerb":friction=1.0
+			elif hit.collider.get_meta("surface")=="snow":friction=.62;rolling=.035
+		friction*=surface_multiplier*grip_multiplier
 		# Mild load sensitivity, plus lower rear grip under the handbrake.
 		friction*=clampf(1.08-.08*spring_force/3200.0,.88,1.08)
 		if i>=2 and handbrake_input>.1:friction*=.74
 		var capacity=maxf(0.01,friction*spring_force)
-		var wheel_torque=axle_torque*.5 if i>=2 else 0.0
-		var wheel_brake=brake_input*(1900.0 if i<2 else 1250.0)
+		var wheel_torque=axle_torque/float(driven_count) if driven(i) else 0.0
+		var wheel_brake=brake_input*(1900.0 if i<2 else 1250.0)*brake_multiplier
 		if i>=2:wheel_brake+=handbrake_input*2600.0
 		# Engine braking through the driven axle.
-		if i>=2 and throttle<.03 and absf(vlong)>1:wheel_brake+=55.0*ratio
+		if driven(i) and throttle<.03 and absf(vlong)>1:wheel_brake+=55.0*ratio
 		var fx_sum=0.0
 		for substep in range(4):
 			var slip=(w.omega*RADIUS-vlong)/maxf(absf(vlong),6.0)
 			w.slip=slip
 			var tq=wheel_torque
 			var br=wheel_brake
-			if driving_mode<2 and i>=2 and slip*direction>.13 and throttle>.03:
+			if driving_mode<2 and driven(i) and slip*direction>.13 and throttle>.03:
 				tq*=clampf(.13/absf(slip),.03,1);tcs_active=true
 			if driving_mode<2 and brake_input>.05 and slip*signf(vlong)<-.17 and absf(vlong)>3:
 				br*=.15;abs_active=true
@@ -196,7 +233,7 @@ func _integrate_forces(state:PhysicsDirectBodyState3D):
 	var speed=velocity.length()
 	drag_force=.5*1.225*.36*2.0*speed*speed
 	if speed>.1:state.apply_central_force(-velocity.normalized()*drag_force)
-	downforce=.5*1.225*1.65*2.0*forward_speed*forward_speed if aero_enabled else 0.0
+	downforce=.5*1.225*float(vehicle_data.aero)*2.0*forward_speed*forward_speed if aero_enabled else 0.0
 	if up.dot(Vector3.UP)>0.3:
 		state.apply_force(-up*downforce*.42,basis*Vector3(0,0,-1.0))
 		state.apply_force(-up*downforce*.58,basis*Vector3(0,0,1.0))

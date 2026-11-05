@@ -1,6 +1,8 @@
 extends Control
 class_name DriveControls
 
+const Safe=preload("res://scripts/ui/safe_area.gd")
+var left_handed=false
 var active=false
 var mode=0
 var invert_tilt=false
@@ -37,15 +39,18 @@ func clear():
 	pointers.clear();pointer_amounts.clear();throttle=0;brake=0;steering=0;handbrake=0;target_steering=0
 
 func make_zones():
-	var size_=get_viewport_rect().size
-	var w=size_.x;var h=size_.y
+	var safe=Safe.rect(self);var w=safe.size.x;var h=safe.size.y
 	if mode==1:
 		zones={"gas":Rect2(w-160,h-210,135,177),"brake":Rect2(24,h-185,135,152),"hand":Rect2(24,h-252,135,57)}
 	else:
 		zones={"gas":Rect2(w-148,h-199,118,164),"brake":Rect2(w-282,h-157,112,122),"hand":Rect2(w-282,h-223,112,53)}
 	if mode==0:
-		zones["left"]=Rect2(28,h-157,112,122)
-		zones["right"]=Rect2(156,h-157,112,122)
+		zones["left"]=Rect2(28,h-157,112,122);zones["right"]=Rect2(156,h-157,112,122)
+	elif mode==2:zones["wheel"]=Rect2(28,h-230,220,200)
+	for key in zones:
+		var rect:Rect2=zones[key]
+		if left_handed:rect.position.x=w-rect.end.x
+		rect.position+=safe.position;zones[key]=rect
 
 func _input(event):
 	if not active or get_tree().paused:return
@@ -64,6 +69,7 @@ func _input(event):
 		else:pointer_amounts[event.index]=_pedal_amount(event.position,key)
 
 func _pedal_amount(pos:Vector2,key:String)->float:
+	if key=="wheel":return clampf((pos.x-zones[key].get_center().x)/(zones[key].size.x*.4),-1,1)
 	if key not in ["gas","brake"]:return 1.0
 	var rect:Rect2=zones[key]
 	return clampf((rect.end.y-pos.y)/rect.size.y,0.05,1.0)
@@ -86,6 +92,11 @@ func _process(dt):
 	var keyboard=float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT))-float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT))
 	if mode==0:
 		target_steering=clampf(float(pressed("right"))-float(pressed("left"))+keyboard,-1,1);status="BOTONES"
+	elif mode==2:
+		target_steering=keyboard
+		for index in pointers:
+			if pointers[index]=="wheel":target_steering=pointer_amounts.get(index,0.0)*32.0/full_angle
+		target_steering=clampf(target_steering,-1,1);status="VOLANTE"
 	else:
 		var g=Input.get_gravity();var gyro=Input.get_gyroscope()
 		if g.length()<1:
@@ -104,6 +115,12 @@ func _process(dt):
 		else:
 			sensor_wait+=dt;target_steering=keyboard;status="BUSCANDO SENSOR"
 			if sensor_wait>3.0:mode=0;sensors_missing.emit()
+	var joypads=Input.get_connected_joypads()
+	if not joypads.is_empty():
+		var joy=joypads[0];var axis=Input.get_joy_axis(joy,JOY_AXIS_LEFT_X)
+		if absf(axis)>.12:target_steering=signf(axis)*(absf(axis)-.12)/.88;status="MANDO"
+		throttle=maxf(throttle,Input.get_joy_axis(joy,JOY_AXIS_TRIGGER_RIGHT));brake=maxf(brake,Input.get_joy_axis(joy,JOY_AXIS_TRIGGER_LEFT))
+		if Input.is_joy_button_pressed(joy,JOY_BUTTON_A):handbrake=1
 	steering=move_toward(steering,target_steering,dt*(3.0 if mode==0 else 4.5))
 	queue_redraw()
 
@@ -118,13 +135,16 @@ func _draw():
 		if key=="brake" and on:style.bg_color=Color(.75,.15,.20,.9)
 		style.set_corner_radius_all(17);style.set_border_width_all(2);style.border_color=Color(.7,.82,.88,.25) if not on else Color("63efce")
 		draw_style_box(style,rect)
-		var label={"gas":"GAS","brake":"FRENO","hand":"F. MANO","left":"◀","right":"▶"}[key]
+		var label={"gas":"GAS","brake":"FRENO","hand":"F. MANO","left":"◀","right":"▶","wheel":"VOLANTE"}[key]
 		var font_size=26 if key in ["gas","left","right"] else 19
 		var tw=font.get_string_size(label,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
 		draw_string(font,rect.get_center()+Vector2(-tw*.5,8),label,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,Color.WHITE)
 		if key in ["gas","brake"]:
 			var fraction=pedal_value(key)
 			draw_rect(Rect2(rect.position.x+5,rect.end.y-6-(rect.size.y-12)*fraction,5,(rect.size.y-12)*fraction),Color("59e8c9"))
+		if key=="wheel":
+			var center=rect.get_center();draw_arc(center,72,0,TAU,48,Color("59e8c9"),5,true)
+			var direction=Vector2(cos(steering),sin(steering))*68;draw_line(center-direction,center+direction,Color("59e8c9"),5,true)
 		if key=="gas":
 			for j in range(4):draw_line(rect.position+Vector2(28,25+j*10),rect.position+Vector2(rect.size.x-28,25+j*10),Color(.8,1,.95,.3),2)
 	if mode==1:

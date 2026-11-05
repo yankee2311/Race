@@ -1,13 +1,16 @@
-name: Build Android APK
-
+name: Validate and build RACE Android
 on:
   push:
-    branches: [main]
-    paths:
-      - 'Race/**'
-      - '.github/workflows/build-apk.yml'
+    branches: [main, 'feature/race-*']
+    paths: ['Race/**', '.github/workflows/build-apk.yml']
+  pull_request:
+    paths: ['Race/**', '.github/workflows/build-apk.yml']
   workflow_dispatch:
-
+permissions:
+  contents: read
+concurrency:
+  group: race-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   export-android:
     runs-on: ubuntu-latest
@@ -15,105 +18,92 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout (con Git LFS)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           lfs: true
-
-      - name: Instalar JDK 17
-        uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Descargar Godot 4.5.1 y plantillas de exportación
+      - name: Install Godot 4.5.1
         run: |
-          cd /tmp
-          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip -O godot.zip
-          unzip -q godot.zip
-          sudo mv Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
+          set -euo pipefail
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip -O /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp
+          sudo mv /tmp/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
-          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz -O templates.tpz
-          mkdir -p /tmp/t ~/.local/share/godot/export_templates
-          unzip -q templates.tpz -d /tmp/t
-          # Godot 4.5.1: el TPZ contiene la carpeta "templates/" (antes era "export_templates/")
-          if [ -d /tmp/t/templates ]; then
-            mv /tmp/t/templates ~/.local/share/godot/export_templates/4.5.1.stable
-          else
-            mv /tmp/t/export_templates ~/.local/share/godot/export_templates/4.5.1.stable
-          fi
-          test -f ~/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk
-          test -f ~/.local/share/godot/export_templates/4.5.1.stable/android_release.apk
-          ls ~/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk
-
-      - name: Configurar keystore debug (usa la clave incluida en el repo)
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz -O /tmp/templates.tpz
+          mkdir -p /tmp/templates ~/.local/share/godot/export_templates
+          unzip -q /tmp/templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates ~/.local/share/godot/export_templates/4.5.1.stable
+      - name: Import and reject script errors
+        run: |
+          set -euo pipefail
+          godot --headless --path Race --editor --import 2>&1 | tee import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed to load script' import.log; then exit 1; fi
+      - name: Physics, catalogs, rules and gameplay regression tests
+        run: |
+          set -euo pipefail
+          for test in physics_test expansion_test track_integration_test experience_test; do
+            timeout 300 godot --headless --path Race --fixed-fps 120 --script tests/$test.gd 2>&1 | tee "$test.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' "$test.log"; then exit 1; fi
+          done
+      - name: Graphical touch and screenshots
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb libgl1-mesa-dri
+          xvfb-run -a godot --audio-driver Dummy --path Race --fixed-fps 120 --script tests/selector_input_test.gd 2>&1 | tee touch.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' touch.log; then exit 1; fi
+          xvfb-run -a godot --audio-driver Dummy --path Race --fixed-fps 120 --script tests/capture_release.gd 2>&1 | tee capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' capture.log; then exit 1; fi
+          test -s Race/docs/v0.3/garage.png
+          test -s Race/docs/v0.3/sierra_time_trial.png
+      - name: Configure debug signing for test distribution
         run: |
           mkdir -p ~/.android ~/.config/godot
-          cp "$GITHUB_WORKSPACE/Race/build/debug.keystore" ~/.android/debug.keystore
-          cat > ~/.config/godot/editor_settings-4.5.tres <<EOF
-          config_version=5
-
-          [export]
-
-          android/debug_keystore="$HOME/.android/debug.keystore"
-          android/debug_keystore_user="androiddebugkey"
-          android/debug_keystore_pass="android"
-          EOF
-          echo "--- editor_settings ---"; cat ~/.config/godot/editor_settings-4.5.tres
-
-      - name: Importar recursos del proyecto (headless)
+          cp Race/build/debug.keystore ~/.android/debug.keystore
+          cat > ~/.config/godot/editor_settings-4.5.tres <<SETTINGS
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "$HOME/.android/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          SETTINGS
+      - name: Export and verify APK
         run: |
-          cd "$GITHUB_WORKSPACE/Race"
-          godot --headless --editor --import 2>&1 | tee ../import.log
-
-      - name: Exportar APK (debug)
-        run: |
-          cd "$GITHUB_WORKSPACE/Race"
-          mkdir -p ../outputs
-          godot --headless --export-debug "Android" "$GITHUB_WORKSPACE/outputs/Race_GT77_Sierra_0.2.1.apk" --verbose 2>&1 | tee ../export.log || true
-          test -f "$GITHUB_WORKSPACE/outputs/Race_GT77_Sierra_0.2.1.apk"
-
-      - name: Verificar que el APK contiene el modelo del coche
-        run: |
-          APK="$GITHUB_WORKSPACE/outputs/Race_GT77_Sierra_0.2.1.apk"
-          unzip -l "$APK" > /tmp/apk_list.txt
-          for patron in "imported/gt77_mobile.glb-.*\.scn" "imported/gt77_mobile_reference_basecolor.png-.*\.ctex" "imported/sierra_mobile.glb-.*\.scn"; do
-            if grep -qE "$patron" /tmp/apk_list.txt; then
-              echo "OK: $patron presente en el APK"
-            else
-              echo "FALTA: $patron no esta en el APK"
-              grep -iE "gt77|sierra" /tmp/apk_list.txt || true
-              exit 1
-            fi
-          done
-
-      - name: Publicar log en rama ci-logs (solo si falla)
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          cd "$GITHUB_WORKSPACE"
-          git config user.name "ci-bot"
-          git config user.email "actions@github.com"
-          cp "$GITHUB_WORKSPACE/import.log" ci_import.log
-          cp "$GITHUB_WORKSPACE/export.log" ci_export.log
-          git add ci_import.log ci_export.log
-          git diff --cached --quiet || git commit -m "ci: log de export fallida" --quiet
-          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/yankee2311/Race.git" HEAD:ci-logs
-
-      - name: Subir log de exportación (diagnóstico)
+          set -euo pipefail
+          mkdir -p outputs
+          godot --headless --path Race --export-debug Android "$GITHUB_WORKSPACE/outputs/RACE_0.3.0.apk" 2>&1 | tee export.log
+          test -s outputs/RACE_0.3.0.apk
+          unzip -l outputs/RACE_0.3.0.apk > /tmp/apk.txt
+          grep -E 'imported/gt77_mobile.glb-.*\.scn' /tmp/apk.txt
+          grep -E 'imported/sierra_mobile.glb-.*\.scn' /tmp/apk.txt
+          grep 'data/vehicles.json' /tmp/apk.txt
+          grep 'data/tracks.json' /tmp/apk.txt
+          cd outputs
+          sha256sum RACE_0.3.0.apk > SHA256SUMS.txt
+      - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: godot-logs
+          name: RACE-0.3-validation
           path: |
-            import.log
-            export.log
+            *.log
+            Race/tests/*results.json
+            Race/docs/v0.3/*.png
           if-no-files-found: warn
-
-      - name: Subir APK como artefacto
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: Race_GT77_Sierra_0.2.1-apk
-          path: outputs/*.apk
+          name: RACE-0.3.0-Android
+          path: outputs/*
           if-no-files-found: error
+      - name: Publish downloadable test version
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v0.3.0-alpha.1 >/dev/null 2>&1 || gh release create v0.3.0-alpha.1 --target "$GITHUB_SHA" --title "RACE 0.3.0 · Offline alpha" --notes-file Race/docs/RELEASE_0.3.0.md --prerelease
+          gh release upload v0.3.0-alpha.1 outputs/* --clobber
