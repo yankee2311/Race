@@ -3,8 +3,10 @@ func _initialize():call_deferred("run")
 func shot(name_:String):
 	for i in range(12):await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://docs/v0.3/"+name_+".png")
+	var error=root.get_texture().get_image().save_png("res://docs/v0.3/"+name_+".png")
+	if error!=OK:printerr("FAIL screenshot "+name_);quit(1)
 func run():
+	DirAccess.make_dir_recursive_absolute("res://docs/v0.3")
 	var game=load("res://main.tscn").instantiate();root.add_child(game)
 	await shot("garage")
 	root.size=Vector2i(1024,768);await shot("tablet")

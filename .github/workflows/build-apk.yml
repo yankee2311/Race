@@ -56,6 +56,9 @@ jobs:
           xvfb-run -a godot --audio-driver Dummy --path Race --fixed-fps 120 --script tests/selector_input_test.gd 2>&1 | tee touch.log
           if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' touch.log; then exit 1; fi
           xvfb-run -a godot --audio-driver Dummy --path Race --fixed-fps 120 --script tests/capture_release.gd 2>&1 | tee capture.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' capture.log; then exit 1; fi
+          test -s Race/docs/v0.3/garage.png
+          test -s Race/docs/v0.3/sierra_time_trial.png
       - name: Configure debug signing for test distribution
         run: |
           mkdir -p ~/.android ~/.config/godot
