@@ -39,12 +39,13 @@ jobs:
       - name: Import and reject script errors
         run: |
           set -euo pipefail
+          godot --headless --path Race --check-only --script scripts/ui/race_ui.gd 2>&1 | tee ui_parse.log
           godot --headless --path Race --editor --import 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed to load script' import.log; then exit 1; fi
       - name: Physics, catalogs, rules and gameplay regression tests
         run: |
           set -euo pipefail
-          for test in physics_test expansion_test track_integration_test experience_test mobile_lite_test; do
+          for test in physics_test expansion_test track_integration_test experience_test mobile_lite_test ui_flow_040_test; do
             timeout 300 godot --headless --path Race --fixed-fps 120 --script tests/$test.gd 2>&1 | tee "$test.log"
             if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' "$test.log"; then exit 1; fi
           done
@@ -59,6 +60,10 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' capture.log; then exit 1; fi
           test -s Race/docs/v0.3/garage.png
           test -s Race/docs/v0.3/sierra_time_trial.png
+          xvfb-run -a godot --audio-driver Dummy --path Race --script tests/capture_ui_040.gd 2>&1 | tee capture_040.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' capture_040.log; then exit 1; fi
+          test -s Race/docs/v0.4/home.png
+          test -s Race/docs/v0.4/garage.png
       - name: Configure debug signing for test distribution
         run: |
           mkdir -p ~/.android ~/.config/godot
@@ -76,28 +81,29 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p outputs
-          godot --headless --path Race --export-debug Android "$GITHUB_WORKSPACE/outputs/RACE_0.3.1.apk" 2>&1 | tee export.log
-          test -s outputs/RACE_0.3.1.apk
-          unzip -l outputs/RACE_0.3.1.apk > /tmp/apk.txt
+          godot --headless --path Race --export-debug Android "$GITHUB_WORKSPACE/outputs/RACE_0.4.0.apk" 2>&1 | tee export.log
+          test -s outputs/RACE_0.4.0.apk
+          unzip -l outputs/RACE_0.4.0.apk > /tmp/apk.txt
           grep -E 'imported/gt77_mobile.glb-.*\.scn' /tmp/apk.txt
           grep -E 'imported/sierra_mobile.glb-.*\.scn' /tmp/apk.txt
           grep 'data/vehicles.json' /tmp/apk.txt
           grep 'data/tracks.json' /tmp/apk.txt
           cd outputs
-          sha256sum RACE_0.3.1.apk > SHA256SUMS.txt
+          sha256sum RACE_0.4.0.apk > SHA256SUMS.txt
       - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: RACE-0.3.1-validation
+          name: RACE-0.4.0-validation
           path: |
             *.log
             Race/tests/*results.json
             Race/docs/v0.3/*.png
+            Race/docs/v0.4/*.png
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
-          name: RACE-0.3.1-Android
+          name: RACE-0.4.0-Android
           path: outputs/*
           if-no-files-found: error
       - name: Publish downloadable test version
@@ -105,5 +111,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.3.1-alpha.1 >/dev/null 2>&1 || gh release create v0.3.1-alpha.1 --target "$GITHUB_SHA" --title "RACE 0.3.1 · Android stabilization" --notes-file Race/docs/RELEASE_0.3.1.md --prerelease
-          gh release upload v0.3.1-alpha.1 outputs/* --clobber
+          gh release view v0.4.0-alpha.1 >/dev/null 2>&1 || gh release create v0.4.0-alpha.1 --target "$GITHUB_SHA" --title "RACE 0.4.0 · UI/UX mobile alpha" --notes-file Race/docs/RELEASE_0.4.0.md --prerelease
+          gh release upload v0.4.0-alpha.1 outputs/* --clobber

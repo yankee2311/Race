@@ -45,7 +45,7 @@ func _ready():
 	var outer=VBoxContainer.new();outer.add_theme_constant_override("separation",12);root_margin.add_child(outer)
 	var header=HBoxContainer.new();outer.add_child(header)
 	var logo=label_(header,"RACE",40);logo.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	wallet=label_(header,"OFFLINE  /  0.3.0",15,Color("59e8c9"));wallet.custom_minimum_size.x=300
+	wallet=label_(header,"OFFLINE  /  0.4.0",15,Color("59e8c9"));wallet.custom_minimum_size.x=300
 	var scroll=ScrollContainer.new();scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL;scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED;outer.add_child(scroll)
 	var columns=HBoxContainer.new();columns.size_flags_horizontal=Control.SIZE_EXPAND_FILL;columns.add_theme_constant_override("separation",24);scroll.add_child(columns)
 	var setup=VBoxContainer.new();setup.size_flags_horizontal=Control.SIZE_EXPAND_FILL;setup.size_flags_stretch_ratio=.9;setup.add_theme_constant_override("separation",8);columns.add_child(setup)
