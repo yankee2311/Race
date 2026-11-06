@@ -15,6 +15,8 @@ var pointers={}
 var pointer_amounts={}
 var zones={}
 var zone_offsets:Dictionary={}
+var zone_scales:Dictionary={}
+var pedal_full=false
 var neutral=Vector3(0,9.81,0)
 var filtered_gravity=Vector3(0,9.81,0)
 var fused_angle=0.0
@@ -50,6 +52,10 @@ func make_zones():
 	elif mode==2:zones["wheel"]=Rect2(28,h-230,220,200)
 	for key in zones:
 		var rect:Rect2=zones[key]
+		var scale_=clampf(float(zone_scales.get(key,1.0)),.8,1.35)
+		var center=rect.get_center()
+		rect.size*=scale_
+		rect.position=center-rect.size*.5
 		if left_handed:rect.position.x=w-rect.end.x
 		rect.position+=safe.position
 		rect.position+=zone_offsets.get(key,Vector2.ZERO)
@@ -76,6 +82,7 @@ func _input(event):
 func _pedal_amount(pos:Vector2,key:String)->float:
 	if key=="wheel":return clampf((pos.x-zones[key].get_center().x)/(zones[key].size.x*.4),-1,1)
 	if key not in ["gas","brake"]:return 1.0
+	if pedal_full:return 1.0
 	var rect:Rect2=zones[key]
 	return clampf((rect.end.y-pos.y)/rect.size.y,0.05,1.0)
 

@@ -5,6 +5,7 @@ const Catalog=preload("res://scripts/track_catalog.gd")
 const Vehicles=preload("res://scripts/vehicles/vehicle_catalog.gd")
 const Rules=preload("res://scripts/gameplay/race_rules.gd")
 const Safe=preload("res://scripts/ui/safe_area.gd")
+const TrackMap=preload("res://scripts/track_map.gd")
 const MINT=Color("59e8c9")
 const RED=Color("db3d53")
 const INK=Color("0b121a")
@@ -33,7 +34,7 @@ func _ready():
 	process_mode=Node.PROCESS_MODE_ALWAYS
 	mouse_filter=Control.MOUSE_FILTER_STOP
 	var shade=ColorRect.new()
-	shade.color=Color("08121de9")
+	shade.color=Color("08121dc6")
 	shade.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	shade.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(shade)
@@ -154,12 +155,29 @@ func _caption(parent:Node,value:String)->void:
 	_text(parent,value,15,SUBTLE)
 
 func _setting(parent:Node,caption:String,choices:Array,selected:int,on_select:Callable)->void:
-	var row=_row(parent)
-	_text(row,caption,17)
+	var block=VBoxContainer.new()
+	parent.add_child(block)
+	_text(block,caption,17,SUBTLE)
+	var row=_row(block)
 	for i in range(choices.size()):
 		var index=i
 		var label=str(choices[i])
 		_button(row,("● " if i==selected else "")+label,func():on_select.call(index);_render(),i==selected)
+
+func _track_art(parent:Node,id:String)->void:
+	var path="res://assets/tracks/previews/"+id+".jpg"
+	if ResourceLoader.exists(path):
+		var texture=TextureRect.new()
+		texture.texture=load(path)
+		texture.custom_minimum_size=Vector2(180,135)
+		texture.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+		texture.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		parent.add_child(texture)
+	else:
+		var drawing=TrackMap.new()
+		drawing.custom_minimum_size=Vector2(180,112)
+		parent.add_child(drawing)
+		drawing.set_track(id)
 
 func _check(parent:Node,label_:String,widget:CheckButton)->void:
 	var toggle=CheckButton.new()
@@ -262,6 +280,7 @@ func _home()->void:
 	_caption(car_card,str(data.family)+"  ·  "+str(data.drive))
 	_button(car_card,"CAMBIAR AUTO",func():_to("garage"))
 	var next=_card(row,"TU PRÓXIMA SESIÓN")
+	_track_art(car_card,game.selector.selected_id)
 	var mode=Rules.MODES[game.selector.session_mode.selected]
 	var track=Catalog.get_entry(game.selector.selected_id).name
 	if game.selector.session_mode.selected==8:track="Recta Drag · 402 m"
@@ -301,6 +320,7 @@ func _prepare()->void:
 	_heading("PREPARAR · "+Rules.MODES[mode].to_upper())
 	var row=_row(body)
 	var route=_card(row,"CIRCUITO")
+	if mode not in [3,8]:_track_art(route,game.selector.selected_id)
 	if mode==8:
 		_text(route,"RECTA DE DRAG · 402 m",20,MINT)
 		_caption(route,"Recorrido fijo; sentido inverso no disponible.")
@@ -339,6 +359,7 @@ func _tracks()->void:
 		if track_filter!="Todos" and not surface.to_lower().contains(track_filter.to_lower()):continue
 		var id=str(entry.id)
 		var card=_card(grid,str(entry.name))
+		_track_art(card,id)
 		_text(card,"%.2f km · %s"%[float(entry.length)/1000,surface],16,MINT)
 		_caption(card,str(entry.difficulty))
 		_button(card,"USAR CIRCUITO"+(" ✓" if game.selector.selected_id==id else ""),func():game.selector.select_track(id);_to("prepare"),game.selector.selected_id==id)
@@ -364,6 +385,10 @@ func _garage()->void:
 		found+=1
 		var id=str(entry.id)
 		var c=_card(grid,str(entry.name))
+		var bar=ColorRect.new()
+		bar.color=Color(str(entry.color))
+		bar.custom_minimum_size=Vector2(120,8)
+		c.add_child(bar)
 		_text(c,str(entry.family)+"  ·  CLASE "+str(entry.vehicle_class),17,MINT)
 		_caption(c,str(entry.drive)+" · "+str(entry.mass)+" kg · "+str(entry.torque)+" Nm")
 		_button(c,"SELECCIONADO ✓" if game.selector.vehicle_id==id else "VER VEHÍCULO",func():game.selector.select_vehicle(id);_to("vehicle"),game.selector.vehicle_id==id)
@@ -518,6 +543,8 @@ func _settings()->void:
 
 func _save_settings()->void:
 	game._apply_settings()
+	game.config.set_value("interface","pedal_full",game.controls.pedal_full)
+	game.config.save("user://settings.cfg")
 	_to("settings")
 
 func _controls()->void:
@@ -534,6 +561,11 @@ func _controls()->void:
 	slider.add_child(bar)
 	_check(slider,"Invertir inclinación",game.inversion)
 	_check(slider,"Modo zurdo",game.lefty)
+	var pedal=CheckButton.new()
+	pedal.text="Pedales al 100 % con un toque"
+	pedal.button_pressed=game.controls.pedal_full
+	pedal.toggled.connect(func(v):game.controls.pedal_full=v)
+	slider.add_child(pedal)
 	_button(body,"EDITAR DISTRIBUCIÓN DE CONTROLES",func():_to("layout_editor"))
 	_button(body,"CENTRAR INCLINACIÓN",func():game.controls.calibrate())
 	_button(body,"GUARDAR CONTROLES",_save_settings,true)
@@ -555,16 +587,28 @@ func _layout_editor()->void:
 	var vertical=_row(card)
 	_button(vertical,"SUBIR",func():_nudge(Vector2(0,-12)))
 	_button(vertical,"BAJAR",func():_nudge(Vector2(0,12)))
+	var scale_=float(game.controls.zone_scales.get(control_zone,1.0))
+	_text(card,"Tamaño: %d %%"%int(scale_*100.0),17)
+	var sizes=_row(card)
+	_button(sizes,"REDUCIR",func():_resize_zone(-.10))
+	_button(sizes,"AGRANDAR",func():_resize_zone(.10))
+	_caption(card,"Los controles se limitan al área segura de Android.")
 	var foot=_row(body)
-	_button(foot,"RESTAURAR",func():game.controls.zone_offsets.clear();_render())
+	_button(foot,"RESTAURAR",func():game.controls.zone_offsets.clear();game.controls.zone_scales.clear();_render())
 	_button(foot,"GUARDAR",func():
 		game.config.set_value("interface","zone_offsets",_serialize_offsets())
+		game.config.set_value("interface","zone_scales",game.controls.zone_scales)
 		game.config.save("user://settings.cfg")
 		_to("controls"),true)
 
 func _nudge(amount:Vector2)->void:
 	var prior=game.controls.zone_offsets.get(control_zone,Vector2.ZERO)
 	game.controls.zone_offsets[control_zone]=(prior+amount).clamp(Vector2(-100,-90),Vector2(100,90))
+	_render()
+
+func _resize_zone(amount:float)->void:
+	var current=float(game.controls.zone_scales.get(control_zone,1.0))
+	game.controls.zone_scales[control_zone]=clampf(current+amount,.8,1.35)
 	_render()
 
 func _serialize_offsets()->Dictionary:
@@ -699,6 +743,11 @@ func _pause()->void:
 	_button(columns,"AJUSTES",func():_to("settings"))
 	_button(columns,"AYUDA",func():_to("help"))
 	_button(columns,"VOLVER AL GARAJE",func():_dialog("ABANDONAR","Perderás el progreso de este intento.",func():game._back_to_menu(),"SALIR"))
+	if game.rules.mode in [0,1]:
+		_button(columns,"TERMINAR SESIÓN",func():
+			game.rules.completed=true
+			game.rules.message="Sesión finalizada"
+			game._finish_event())
 	_button(body,"▶ CONTINUAR",func():hide();game._resume(),true)
 
 func _results()->void:
@@ -706,7 +755,10 @@ func _results()->void:
 	var c=_card(body,game.rules.message)
 	_text(c,"TIEMPO TOTAL: "+game.time_string(game.rules.elapsed),24,MINT)
 	var mode=game.rules.mode
-	if mode in [2,3,7]:
+	if mode in [0,1]:
+		_text(c,"VUELTAS VÁLIDAS: %d"%game.laps,21)
+		_text(c,"MEJOR VUELTA: "+(game.time_string(game.best_lap) if game.best_lap>0 else "Sin récord"),18)
+	elif mode in [2,3,7]:
 		_text(c,"POSICIÓN: %d / %d"%[game.rules.position,game.rivals.size()+1],21)
 	elif mode==4:
 		_text(c,"PUNTOS DRIFT: %d"%int(game.rules.score),21)

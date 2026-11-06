@@ -59,6 +59,10 @@ jobs:
           if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' capture.log; then exit 1; fi
           test -s Race/docs/v0.3/garage.png
           test -s Race/docs/v0.3/sierra_time_trial.png
+          xvfb-run -a godot --audio-driver Dummy --path Race --script tests/capture_ui_040.gd 2>&1 | tee capture_040.log
+          if grep -E 'SCRIPT ERROR|Parse Error|FAIL ' capture_040.log; then exit 1; fi
+          test -s Race/docs/v0.4/home.png
+          test -s Race/docs/v0.4/garage.png
       - name: Configure debug signing for test distribution
         run: |
           mkdir -p ~/.android ~/.config/godot
@@ -94,6 +98,7 @@ jobs:
             *.log
             Race/tests/*results.json
             Race/docs/v0.3/*.png
+            Race/docs/v0.4/*.png
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:

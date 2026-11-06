@@ -76,6 +76,7 @@ var results_paid=false
 var ranking_distance=0.0
 var initial_environment:Environment
 var screenshot_mode=false
+var reset_hold_active=false
 var lite_profile=false
 var diagnostic_seconds=0.0
 
@@ -115,6 +116,9 @@ func _ready():
 	ghost=preload("res://scripts/gameplay/ghost.gd").new();add_child(ghost);ghost.hide()
 	_apply_settings();_preview_vehicle(selector.vehicle_id)
 	hud.compact=bool(config.get_value("interface","hud_compact",false))
+	controls.pedal_full=bool(config.get_value("interface","pedal_full",false))
+	var stored_scales=config.get_value("interface","zone_scales",{})
+	if stored_scales is Dictionary:controls.zone_scales=stored_scales
 	var stored_offsets=config.get_value("interface","zone_offsets",{})
 	if stored_offsets is Dictionary:
 		for zone in stored_offsets:
@@ -167,7 +171,11 @@ func _build_settings():
 func _build_actions():
 	action_ui=Control.new();action_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);action_ui.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(action_ui);action_ui.hide()
 	var row=HBoxContainer.new();row.name="Top";action_ui.add_child(row)
-	button(row,"CÁMARA",_cycle_camera);button(row,"RECOLOCAR",_reset);button(row,"PAUSA",_pause)
+	button(row,"CÁMARA",_cycle_camera)
+	var reset=Button.new();reset.text="MANTENER RECOLOCAR";reset.theme=base_theme;reset.custom_minimum_size.y=44;row.add_child(reset)
+	reset.button_down.connect(_begin_reset_hold)
+	reset.button_up.connect(func():reset_hold_active=false)
+	button(row,"PAUSA",_pause)
 	var reverse=button(action_ui,"R / D",_reverse);reverse.name="Reverse"
 func _build_pause():
 	pause_menu=overlay();var box=content(pause_menu);label_(box,"PAUSA EN BOXES",30)
@@ -276,7 +284,7 @@ func _apply_weather():
 func _pause():
 	if not playing or rules.completed:return
 	if audio_player:audio_player.set_active(false)
-	controls.clear();get_tree().paused=true;pause_menu.show()
+	reset_hold_active=false;controls.clear();get_tree().paused=true;pause_menu.show()
 	if is_instance_valid(ux):pause_menu.hide();ux.show_pause()
 func _resume():
 	if is_instance_valid(ux):ux.hide()
@@ -294,10 +302,18 @@ func _exit_photo():
 	_resume()
 func _back_to_menu():
 	if audio_player:audio_player.set_active(false)
-	photo_mode=false;photo_ui.hide();get_tree().paused=false;pause_menu.hide();results.hide();playing=false;menu.hide();selector.show();selector.refresh_profile();action_ui.hide();controls.active=false;controls.show();controls.clear();hud.show();car.freeze=true;car.linear_velocity=Vector3.ZERO;car.angular_velocity=Vector3.ZERO;ghost.hide()
+	photo_mode=false;photo_ui.hide();get_tree().paused=false;pause_menu.hide();results.hide();playing=false;menu.hide();selector.show();selector.refresh_profile();action_ui.hide();controls.active=false;controls.show();controls.clear();reset_hold_active=false;hud.show();car.freeze=true;car.linear_velocity=Vector3.ZERO;car.angular_velocity=Vector3.ZERO;ghost.hide()
 	for rival in rivals:rival.queue_free()
 	rivals.clear()
 	if is_instance_valid(ux):selector.hide();ux.show();ux._tab("home")
+func _begin_reset_hold():
+	if not playing:return
+	reset_hold_active=true
+	var timer=get_tree().create_timer(.65,false)
+	timer.timeout.connect(func():
+		if reset_hold_active and playing and not get_tree().paused:
+			reset_hold_active=false
+			_reset())
 func _reset():
 	if not playing:return
 	var target=track.reset_near(car.position);car.request_reset(target);controls.clear();lap_time=0
@@ -306,7 +322,7 @@ func _reset():
 	notify("Recolocado · vuelta invalidada")
 func _reverse():
 	if car.toggle_reverse():notify("REVERSA" if car.reverse else "MARCHA ADELANTE")
-	else:notify("Detén el coche para cambiar R / D")
+	else:notify("Reduce a 5 km/h o menos para cambiar R / D")
 func _cycle_camera():camera_mode=(camera_mode+1)%3
 func notify(value:String):message=value;message_time=4.0
 func _unhandled_input(event):
@@ -419,7 +435,7 @@ func _finish_event():
 	results_paid=true;controls.clear();controls.active=false;car.freeze=true;action_ui.hide();ghost.hide();results.show()
 	if audio_player:audio_player.set_active(false)
 	if is_instance_valid(ux):results.hide();ux.show_results()
-	var success=rules.valid and not ("invalidado" in rules.message or "agotado" in rules.message or "eliminado" in rules.message)
+	var success=rules.mode not in [0,1] and rules.valid and not ("invalidado" in rules.message or "agotado" in rules.message or "eliminado" in rules.message)
 	var reward=maxi(100,700-rules.position*80) if success else 0
 	if success:profile.reward(reward,100)
 	var text="%s\n%s\nTiempo: %s\nPosición: %d / %d\nPuntos drift: %d\nRecompensa: %d CR"%[game_mode,rules.message,time_string(rules.elapsed),rules.position,rivals.size()+1,int(rules.score),reward]
