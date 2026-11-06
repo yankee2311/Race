@@ -12,10 +12,12 @@ const LapTracker=preload("res://scripts/lap_tracker.gd")
 const Rules=preload("res://scripts/gameplay/race_rules.gd")
 const Safe=preload("res://scripts/ui/safe_area.gd")
 const MobileProfile=preload("res://scripts/core/mobile_profile.gd")
+const UXScript=preload("res://scripts/ui/race_ui.gd")
 var profile=preload("res://scripts/core/profile.gd").new()
 var rules=Rules.new()
 var lap_tracker=LapTracker.new()
 var selector
+var ux
 var car
 var track
 var controls
@@ -87,7 +89,7 @@ func _ready():
 		MobileProfile.apply_lite_defaults(config)
 		MobileProfile.configure_engine(true)
 		config.save("user://settings.cfg")
-	print("RACE_DIAG boot version=0.3.1 model=%s lite=%s physics_hz=%d"%[OS.get_model_name(),str(lite_profile),Engine.physics_ticks_per_second])
+	print("RACE_DIAG boot version=0.4.0 model=%s lite=%s physics_hz=%d"%[OS.get_model_name(),str(lite_profile),Engine.physics_ticks_per_second])
 	selected_track_id=Catalog.get_entry(config.get_value("session","selected_track","sierra")).id
 	track=TrackScript.new();add_child(track)
 	car=CarScript.new();add_child(car);car.transform=track.start_transform;car.freeze=true
@@ -112,6 +114,20 @@ func _ready():
 	audio_player=preload("res://scripts/engine_audio.gd").new();audio_player.car=car;add_child(audio_player)
 	ghost=preload("res://scripts/gameplay/ghost.gd").new();add_child(ghost);ghost.hide()
 	_apply_settings();_preview_vehicle(selector.vehicle_id)
+	hud.compact=bool(config.get_value("interface","hud_compact",false))
+	var stored_offsets=config.get_value("interface","zone_offsets",{})
+	if stored_offsets is Dictionary:
+		for zone in stored_offsets:
+			var vec=stored_offsets[zone]
+			if vec is Array and vec.size()==2:
+				controls.zone_offsets[str(zone)]=Vector2(float(vec[0]),float(vec[1]))
+	# Godot --script regression tests continue to exercise the original 0.3 adapter.
+	if DisplayServer.get_name()!="headless" and not OS.get_cmdline_args().has("--script"):
+		ux=UXScript.new()
+		ux.game=self
+		ux.theme=base_theme
+		ui.add_child(ux)
+		selector.hide()
 
 func label_(parent:Node,text_:String,font_size:int=18)->Label:
 	var label=Label.new();label.text=text_;label.add_theme_font_size_override("font_size",font_size);parent.add_child(label);return label
@@ -162,10 +178,11 @@ func _build_pause():
 func _build_photo():
 	photo_ui=Control.new();photo_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);photo_ui.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(photo_ui)
 	var row=HBoxContainer.new();row.name="Buttons";row.position=Vector2(24,24);photo_ui.add_child(row)
-	button(row,"VOLVER",_resume);button(row,"GUARDAR FOTO",_save_photo)
+	button(row,"VOLVER",_exit_photo);button(row,"GUARDAR FOTO",_save_photo)
 	var help=label_(row,"  Arrastra para girar · C para guardar",16);help.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	photo_ui.hide()
 func _open_photo():
+	if is_instance_valid(ux):ux.hide()
 	if audio_player:audio_player.set_active(false)
 	photo_mode=true;photo_angle=0;get_tree().paused=true;pause_menu.hide();action_ui.hide();hud.hide();controls.hide();photo_ui.show()
 func _build_results():
@@ -174,6 +191,7 @@ func _build_results():
 	continue_button=button(box,"VOLVER AL GARAJE",_continue_event)
 	button(box,"GARAJE",_back_to_menu)
 func _apply_settings():
+	base_theme.default_font_size=20 if bool(config.get_value("interface","large_text",false)) else 18
 	car.driving_mode=style_select.selected;controls.mode=control_select.selected;controls.full_angle=sensitivity.value;controls.invert_tilt=inversion.button_pressed;controls.left_handed=lefty.button_pressed
 	Engine.max_fps=30 if fps_select.selected==0 else 60
 	get_viewport().scaling_3d_scale=[.7,.85,1.0][quality_select.selected]
@@ -233,6 +251,7 @@ func _start():
 			var rival=preload("res://scripts/gameplay/opponent.gd").new();add_child(rival);rival.setup(track,Vehicles.get_vehicle(selector.vehicle_id),i,[.65,.85,1.0][selector.difficulty_choice.selected]);rivals.append(rival)
 	car.global_transform=track.start_transform;car.request_reset(track.start_transform);car.physics_enabled=true;car.visible=true;car.freeze=false
 	playing=true;menu.hide();selector.hide();selector.set_loading(false);results.hide();pause_menu.hide();action_ui.show();hud.show();controls.show();controls.active=true;controls.clear();controls.calibrate()
+	if is_instance_valid(ux):ux.hide()
 	camera.position=car.global_transform*Vector3(0,2.7,6.3);camera.look_at(car.position-car.basis.z*3,Vector3.UP);camera.make_current()
 	loading_track=false
 	if audio_player:audio_player.set_active(true)
@@ -258,15 +277,27 @@ func _pause():
 	if not playing or rules.completed:return
 	if audio_player:audio_player.set_active(false)
 	controls.clear();get_tree().paused=true;pause_menu.show()
+	if is_instance_valid(ux):pause_menu.hide();ux.show_pause()
 func _resume():
+	if is_instance_valid(ux):ux.hide()
 	photo_mode=false;photo_ui.hide();hud.show();controls.show();action_ui.visible=playing;get_tree().paused=false;pause_menu.hide();controls.clear();controls.calibrate()
 	if audio_player:audio_player.set_active(playing)
 	if not playing:selector.show()
+func _exit_photo():
+	if photo_mode and is_instance_valid(ux):
+		photo_mode=false;photo_ui.hide()
+		if ux.photo_origin=="pause":
+			get_tree().paused=true;ux.show_pause()
+		else:
+			get_tree().paused=false;ux.show();ux._to("vehicle")
+		return
+	_resume()
 func _back_to_menu():
 	if audio_player:audio_player.set_active(false)
 	photo_mode=false;photo_ui.hide();get_tree().paused=false;pause_menu.hide();results.hide();playing=false;menu.hide();selector.show();selector.refresh_profile();action_ui.hide();controls.active=false;controls.show();controls.clear();hud.show();car.freeze=true;car.linear_velocity=Vector3.ZERO;car.angular_velocity=Vector3.ZERO;ghost.hide()
 	for rival in rivals:rival.queue_free()
 	rivals.clear()
+	if is_instance_valid(ux):selector.hide();ux.show();ux._tab("home")
 func _reset():
 	if not playing:return
 	var target=track.reset_near(car.position);car.request_reset(target);controls.clear();lap_time=0
@@ -287,7 +318,8 @@ func _unhandled_input(event):
 		else:_pause()
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode==KEY_ESCAPE:
-			if get_tree().paused:_resume()
+			if is_instance_valid(ux) and ux.visible:ux.back()
+			elif get_tree().paused:_resume()
 			elif menu.visible:menu.hide();selector.show()
 			else:_pause()
 		elif event.keycode==KEY_C and playing:
@@ -300,12 +332,14 @@ func _save_photo():
 	await RenderingServer.frame_post_draw
 	var file="user://RACE_photo_%d.png"%Time.get_unix_time_from_system()
 	var error=get_viewport().get_texture().get_image().save_png(file)
-	_resume();notify("Foto guardada en datos de la app" if error==OK else "No se pudo guardar la foto")
+	photo_ui.show()
+	notify("Foto guardada en datos de la app" if error==OK else "No se pudo guardar la foto")
 func _notification(what):
 	if what==NOTIFICATION_APPLICATION_PAUSED or what==NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if playing:_pause()
 	elif what==NOTIFICATION_WM_GO_BACK_REQUEST:
-		if get_tree().paused:_resume()
+		if is_instance_valid(ux) and ux.visible:ux.back()
+		elif get_tree().paused:_exit_photo() if photo_mode else _resume()
 		elif playing:_pause()
 		elif menu.visible:menu.hide();selector.show()
 		else:get_tree().quit()
@@ -384,6 +418,7 @@ func _finish_event():
 	if results_paid:return
 	results_paid=true;controls.clear();controls.active=false;car.freeze=true;action_ui.hide();ghost.hide();results.show()
 	if audio_player:audio_player.set_active(false)
+	if is_instance_valid(ux):results.hide();ux.show_results()
 	var success=rules.valid and not ("invalidado" in rules.message or "agotado" in rules.message or "eliminado" in rules.message)
 	var reward=maxi(100,700-rules.position*80) if success else 0
 	if success:profile.reward(reward,100)

@@ -5,6 +5,7 @@ var car
 var controls
 var track
 var session
+var compact=false
 var font:Font
 var mono:Font
 var _cached_track:Node3D
@@ -30,31 +31,42 @@ func _draw():
 	if not is_instance_valid(car) or not is_instance_valid(session) or not session.playing:return
 	var safe=Safe.rect(self);draw_set_transform(safe.position)
 	var w=safe.size.x;var h=safe.size.y;var mint=Color("59e8c9");var muted=Color("a9bfd1")
-	panel(Rect2(20,18,245,58));text(Vector2(34,42),session.game_mode.to_upper(),18)
-	text(Vector2(34,64),"%s · %s"%[car.vehicle_data.name,["ARCADE","SPORT","SIM"][car.driving_mode]],12,mint)
-	panel(Rect2(w*.5-180,88,360,62));text(Vector2(w*.5-163,112),"VUELTA %d"%(session.laps+1),12,muted)
-	text(Vector2(w*.5-163,137),session.time_string(session.lap_time),22,Color.WHITE,true)
-	text(Vector2(w*.5+22,112),"RÉCORD PERSONAL",11,muted);text(Vector2(w*.5+22,136),session.time_string(session.best_lap) if session.best_lap>0 else "--:--.---",19,mint,true)
-	panel(Rect2(20,94,190,160));_cache_map(Rect2(34,110,161,126))
+	# The center is reserved for the track; goals stay on the top band.
+	panel(Rect2(w*.5-215,14,430,94))
+	var mode=session.rules.mode
+	if mode==4:
+		text(Vector2(w*.5-185,48),"DRIFT · %d PTS"%int(session.rules.score),27,mint)
+		text(Vector2(w*.5-185,78),"COMBO ×%.1f · %.0f s RESTANTES"%[session.rules.combo,maxf(0,90-session.rules.elapsed)],17,Color.WHITE)
+	elif mode in [5,6,8]:
+		var target=402.0 if mode==8 else session.track.length_m*.75
+		text(Vector2(w*.5-185,46),session.game_mode.to_upper()+" · "+session.time_string(session.rules.elapsed),21,mint)
+		text(Vector2(w*.5-185,75),"QUEDAN %d m"%maxi(0,int(target-session.rules.travel)),20,Color.WHITE)
+	elif mode==9:
+		text(Vector2(w*.5-185,46),"ACADEMIA · %d/3"%mini(3,session.rules.academy_step+1),22,mint)
+		text(Vector2(w*.5-185,75),session.rules.message,15,Color.WHITE)
+	elif mode==7:
+		text(Vector2(w*.5-185,46),"ELIMINACIÓN · %d/%d"%[session.rules.position,session.rivals.size()+1],20,mint)
+		text(Vector2(w*.5-185,75),"CORTE EN %d s"%int(maxf(0,session.rules.elimination_at-session.rules.elapsed)),18,Color.WHITE)
+	else:
+		text(Vector2(w*.5-185,45),session.game_mode.to_upper()+"  ·  VUELTA %d"%(session.laps+1),21,mint)
+		text(Vector2(w*.5-185,78),session.time_string(session.lap_time),26,Color.WHITE,true)
+	panel(Rect2(18,20,166,146));_cache_map(Rect2(30,32,140,116))
 	if _cached_polyline.size()<2:return
 	var map_transform=_cached_map_transform
 	draw_polyline(_cached_polyline,Color(.5,.65,.77,.65),4,true)
 	for rival in session.rivals:draw_circle(map_transform*Vector2(rival.position.x,rival.position.z),3,Color("ff6584"))
 	var pos=map_transform*Vector2(car.position.x,car.position.z);draw_circle(pos,5,mint)
 	var fwd=-car.global_basis.z;draw_line(pos,pos+Vector2(fwd.x,fwd.z)*12,mint,2)
-	if not session.rivals.is_empty():text(Vector2(33,280),"POSICIÓN %d / %d"%[session.rules.position,session.rivals.size()+1],18,mint)
-	if session.rules.mode==4:text(Vector2(w*.5-120,182),"DRIFT %d  ×%.1f"%[int(session.rules.score),session.rules.combo],24,mint)
-	elif session.rules.mode in [5,6,8]:text(Vector2(w*.5-140,180),"RECORRIDO %d m · %s"%[maxi(0,int(session.rules.travel)),session.time_string(session.rules.elapsed)],16,mint)
-	elif session.rules.mode in [0,1,2,3] and session.last_sector>0:text(Vector2(w*.5-100,179),"SECTOR %d  %+.3f s"%[session.last_sector,session.sector_delta],17,mint if session.sector_delta<=0 else Color("ff6b80"))
-	elif session.rules.mode==7:text(Vector2(w*.5-130,180),"ELIMINACIÓN EN %d s"%int(maxf(0,session.rules.elimination_at-session.rules.elapsed)),18,mint)
-	if session.rules.mode==9:text(Vector2(w*.5-290,180),session.rules.message,18,mint)
-	var cx=w*.5;panel(Rect2(cx-125,h-165,250,140))
-	for i in range(20):draw_rect(Rect2(cx-109+i*11,h-149,8,6),mint if i/20.0<(car.rpm-900)/7300 else Color("253a4d"))
-	text(Vector2(cx-107,h-83),"%03d"%roundi(car.speed_kmh),54,Color.WHITE,true)
-	text(Vector2(cx+67,h-86),"R" if car.reverse else str(car.gear),40,mint,true)
-	text(Vector2(cx-106,h-58),"km/h   ·   %d RPM"%int(car.rpm),12,muted)
-	text(Vector2(cx-106,h-38),"%s   %s   %s"%["ABS" if car.abs_active else "", "TCS" if car.tcs_active else "",controls.status],11,mint)
-	if not session.rules.valid:text(Vector2(cx-104,h-182),"VUELTA INVALIDADA",14,Color("ff6b80"))
+	if not session.rivals.is_empty():text(Vector2(24,191),"POS %d / %d"%[session.rules.position,session.rivals.size()+1],18,mint)
+	if session.rules.mode in [0,1,2,3] and session.last_sector>0:text(Vector2(w*.5-145,136),"Δ MEJOR SECTOR %+.3f s"%session.sector_delta,17,mint if session.sector_delta<=0 else Color("ff6b80"))
+	var cx=w*.5;panel(Rect2(cx-135,h-113,270,103))
+	for i in range(20):draw_rect(Rect2(cx-109+i*11,h-101,8,6),mint if i/20.0<(car.rpm-900)/7300 else Color("253a4d"))
+	text(Vector2(cx-107,h-43),"%03d"%roundi(car.speed_kmh),54,Color.WHITE,true)
+	text(Vector2(cx+67,h-46),"R" if car.reverse else str(car.gear),40,mint,true)
+	if not compact:
+		text(Vector2(cx-106,h-22),"km/h   ·   %d RPM"%int(car.rpm),12,muted)
+		text(Vector2(cx-106,h-5),"%s   %s   %s"%["ABS" if car.abs_active else "", "TCS" if car.tcs_active else "",controls.status],11,mint)
+	if not session.rules.valid:text(Vector2(cx-104,h-135),"VUELTA INVALIDADA",14,Color("ff6b80"))
 	if session.message_time>0:
 		panel(Rect2(cx-300,200,600,40));text(Vector2(cx-282,226),session.message,16,mint)
 	if session.rules.countdown>0:

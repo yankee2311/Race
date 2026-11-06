@@ -14,6 +14,7 @@ var handbrake=0.0
 var pointers={}
 var pointer_amounts={}
 var zones={}
+var zone_offsets:Dictionary={}
 var neutral=Vector3(0,9.81,0)
 var filtered_gravity=Vector3(0,9.81,0)
 var fused_angle=0.0
@@ -50,7 +51,11 @@ func make_zones():
 	for key in zones:
 		var rect:Rect2=zones[key]
 		if left_handed:rect.position.x=w-rect.end.x
-		rect.position+=safe.position;zones[key]=rect
+		rect.position+=safe.position
+		rect.position+=zone_offsets.get(key,Vector2.ZERO)
+		rect.position.x=clampf(rect.position.x,safe.position.x,safe.end.x-rect.size.x)
+		rect.position.y=clampf(rect.position.y,safe.position.y,safe.end.y-rect.size.y)
+		zones[key]=rect
 
 func _input(event):
 	if not active or get_tree().paused:return

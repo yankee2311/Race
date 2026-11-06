@@ -21,10 +21,14 @@ func buy(vehicle: String, component: String) -> bool:
 	if component not in ["motor","grip","brakes"]: return false
 	var current = level(vehicle,component); var cost = 500*(current+1)
 	if current >= 3 or data.credits < cost: return false
+	var snapshot=data.duplicate(true)
 	data.credits -= cost
 	if not data.upgrades.has(vehicle): data.upgrades[vehicle] = {}
 	data.upgrades[vehicle][component] = current+1
-	save(); return true
+	if not save():
+		data=snapshot
+		return false
+	return true
 func reward(credits: int, xp: int):
 	data.credits += maxi(0,credits); data.xp += maxi(0,xp); save()
 func record(key: String, seconds: float) -> bool:
