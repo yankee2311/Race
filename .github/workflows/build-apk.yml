@@ -39,6 +39,7 @@ jobs:
       - name: Import and reject script errors
         run: |
           set -euo pipefail
+          godot --headless --path Race --check-only --script scripts/ui/race_ui.gd 2>&1 | tee ui_parse.log
           godot --headless --path Race --editor --import 2>&1 | tee import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed to load script' import.log; then exit 1; fi
       - name: Physics, catalogs, rules and gameplay regression tests
